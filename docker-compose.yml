@@ -1,8 +1,17 @@
-# Home Assistant, wie diese Integration entwickelt und getestet wurde.
+# Home Assistant mit dieser Integration, direkt aus dem Repo betrieben.
 #
-# Das Konfigurationsverzeichnis wird bewusst NICHT mit versioniert: dort liegen
+# Der Kern: das Repo wird in den Container gemountet. Bearbeiten, Ausprobieren und
+# Versionieren passieren dadurch am selben Ort - es gibt keine zweite Kopie, die
+# auseinanderlaufen kann. Was in custom_components/smart_homeassistant/ steht, ist
+# genau das, was Home Assistant laedt (nach `docker compose restart homeassistant`).
+#
+# Starten:      docker compose up -d
+# Neu laden:    docker compose restart homeassistant
+# Oberflaeche:  http://localhost:8123
+#
+# ./config wird beim ersten Start angelegt und enthaelt die Laufzeitdaten:
 # secrets.yaml, die Datenbank und .storage/ mit den API-Keys der Modell-Anbindungen
-# im Klartext. Nur ./custom_components/smart_homeassistant wird eingehaengt.
+# im Klartext. Es ist in .gitignore ausgenommen und gehoert nicht ins Repo.
 
 services:
   homeassistant:
@@ -16,8 +25,11 @@ services:
     volumes:
       # Eigenes, nicht versioniertes Konfigurationsverzeichnis
       - ./config:/config
-      # Die Integration aus diesem Repo direkt hineinreichen
-      - ./custom_components/smart_homeassistant:/config/custom_components/smart_homeassistant:ro
+      # Die Integration aus diesem Repo direkt hineinreichen. Bewusst schreibbar und
+      # NICHT ":ro": der Dienst smart_homeassistant.refresh_documentation schreibt den
+      # Offline-Doku-Schnappschuss nach homeassistant_docs_offline.md zurueck, also in
+      # genau dieses Verzeichnis.
+      - ./custom_components/smart_homeassistant:/config/custom_components/smart_homeassistant
 
   # Optional: lokales Modell. Ohne diesen Dienst laesst sich stattdessen ein
   # Cloud-Provider (OpenAI-kompatibel, Anthropic, Gemini) im Chat-Fenster hinterlegen.
