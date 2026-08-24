@@ -20,6 +20,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
+from .ollama_client import clean_api_key
 
 STORAGE_VERSION = 1
 STORAGE_KEY = f"{DOMAIN}_providers"
@@ -119,7 +120,11 @@ class ProviderStore:
             type=type_,
             model=model,
             url=url,
-            api_key=api_key,
+            # Auch beim Speichern bereinigen, nicht erst beim Senden: der Chat-Dialog
+            # macht bereits ein trim(), der Dienst-Aufruf add_model_provider aber nicht -
+            # ein per Entwicklerwerkzeuge angelegter Provider behielte den Muell sonst
+            # dauerhaft im Store.
+            api_key=clean_api_key(api_key),
             is_default=make_default or not self._providers,
         )
         if provider.is_default:
@@ -167,7 +172,7 @@ class ProviderStore:
         if url is not None:
             provider.url = url
         if api_key:
-            provider.api_key = api_key
+            provider.api_key = clean_api_key(api_key)
         if make_default:
             for existing in self._providers.values():
                 existing.is_default = existing.id == provider_id

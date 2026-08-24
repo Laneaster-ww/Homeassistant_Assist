@@ -80,6 +80,7 @@ from .docs_knowledge import (
 from .i18n import t
 from .text_format import name_map, normalize_umlauts
 from .llm_clients import LLMClient, create_client
+from .ollama_client import InsecureEndpointError
 from .ollama_client import build_system_prompt
 
 _LOGGER = logging.getLogger(__name__)
@@ -450,7 +451,15 @@ class SmartHomeAssistantConversationEntity(conversation.ConversationEntity):
             provider = store.get_default()
         if provider is None:
             raise BrokerError(t("no_provider_configured", language), "no_provider")
-        return create_client(self.hass, provider)
+        try:
+            return create_client(self.hass, provider)
+        except InsecureEndpointError as exc:
+            # Als BrokerError weitergereicht, weil _handle_new_message genau den faengt
+            # und dessen Text unveraendert in den Chat stellt - der Nutzer erfaehrt so den
+            # tatsaechlichen Grund statt eines generischen "Anfrage fehlgeschlagen".
+            raise BrokerError(
+                t("insecure_endpoint", language, host=exc.host), "insecure_endpoint"
+            ) from exc
 
     def _display_names(self) -> dict[str, str]:
         """Korrekte Schreibweisen aus Home Assistant fuer die Umlaut-Nachbearbeitung."""

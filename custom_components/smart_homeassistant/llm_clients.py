@@ -30,7 +30,9 @@ from .ollama_client import (
     LLMHTTPError,
     LLMOutput,
     OllamaClient,
+    clean_api_key,
     extract_json,
+    guard_api_key_transport,
     raise_for_status_with_body,
 )
 from .providers import ModelProvider
@@ -137,8 +139,9 @@ class OpenAICompatibleClient:
     def __init__(self, hass: HomeAssistant, url: str, api_key: str, model: str) -> None:
         self.hass = hass
         self.url = self._normalize_base_url(url or self.DEFAULT_URL)
-        self.api_key = api_key
+        self.api_key = clean_api_key(api_key)
         self.model = model
+        guard_api_key_transport(self.url, self.api_key)
 
     @staticmethod
     def _normalize_base_url(url: str) -> str:
@@ -158,9 +161,16 @@ class OpenAICompatibleClient:
         return cleaned
 
     def _headers(self) -> dict:
+        """Auth-Header. Ohne Key bewusst gar keiner - lokale Endpunkte brauchen keinen."""
+
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
+        # OpenRouter ordnet Anfragen ueber diesen Header der aufrufenden Anwendung zu und
+        # zeigt sie in der eigenen Nutzungsuebersicht getrennt an. Kein "HTTP-Referer":
+        # dafuer gibt es keine echte Adresse, und eine erfundene waere eine falsche Angabe.
+        if "openrouter.ai" in self.url:
+            headers["X-Title"] = "Smart Homeassistant"
         return headers
 
     # Kombinationen aus (Basis-URL, Modell), die "response_format" nicht koennen. Ohne
@@ -278,8 +288,9 @@ class AnthropicClient:
     def __init__(self, hass: HomeAssistant, url: str, api_key: str, model: str) -> None:
         self.hass = hass
         self.url = (url or self.DEFAULT_URL).rstrip("/")
-        self.api_key = api_key
+        self.api_key = clean_api_key(api_key)
         self.model = model
+        guard_api_key_transport(self.url, self.api_key)
 
     def _headers(self) -> dict:
         return {
@@ -368,8 +379,9 @@ class GeminiClient:
     def __init__(self, hass: HomeAssistant, url: str, api_key: str, model: str) -> None:
         self.hass = hass
         self.url = (url or self.DEFAULT_URL).rstrip("/")
-        self.api_key = api_key
+        self.api_key = clean_api_key(api_key)
         self.model = model
+        guard_api_key_transport(self.url, self.api_key)
 
     @staticmethod
     def _to_gemini_contents(messages: list[dict]) -> tuple[str, list[dict]]:

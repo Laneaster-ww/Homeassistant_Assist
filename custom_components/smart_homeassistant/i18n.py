@@ -221,6 +221,18 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
             "and configuration.yaml for errors - details are in the log."
         ),
     },
+    "insecure_endpoint": {
+        "de": (
+            "Der API-Key wuerde unverschluesselt an '{host}' gesendet - das wurde "
+            "verhindert. Bitte die Server-Adresse des Modells auf https:// umstellen "
+            "(Chat-Fenster, 'Modell wechseln')."
+        ),
+        "en": (
+            "The API key would be sent unencrypted to '{host}' - this was blocked. "
+            "Please change the model's server address to https:// ('Switch model' in "
+            "the chat window)."
+        ),
+    },
     "no_provider_configured": {
         "de": (
             "Es ist noch kein KI-Modell eingerichtet. Füge im Chat-Fenster über 'Modell "

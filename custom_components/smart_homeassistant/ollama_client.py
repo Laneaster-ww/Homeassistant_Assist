@@ -15,7 +15,9 @@ Verarbeitbares wird:
 from __future__ import annotations
 
 import json
+import re
 from typing import Literal, Optional
+from urllib.parse import urlparse
 
 import aiohttp
 import yaml
@@ -31,6 +33,73 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 # Viertelstunde haengen lassen. Zusaetzlich begrenzt conversation._deadline() die
 # Gesamtdauer ueber alle Versuche.
 _REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=120)
+
+
+# "Bearer " wird beim Kopieren aus einer Anbieter-Doku gern mit uebernommen.
+_BEARER_PREFIX = re.compile(r"^\s*bearer\s+", re.IGNORECASE)
+
+# Endpunkte, bei denen unverschluesseltes http unbedenklich ist, weil die Verbindung
+# das Geraet nicht verlaesst. host.docker.internal gehoert dazu: das ist der Docker-Host,
+# auf dem typischerweise Ollama oder LM Studio laeuft.
+_LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "host.docker.internal"})
+
+
+def clean_api_key(key: str) -> str:
+    """Bereinigt einen eingefuegten API-Key, bevor er in einen HTTP-Header geht.
+
+    Drei Kopierfehler, die sich alle als "der Key ist falsch" praesentieren, obwohl er
+    es nicht ist:
+
+    * umgebende Leerzeichen,
+    * ein mitkopiertes "Bearer " aus der Anbieter-Dokumentation,
+    * ein Zeilenumbruch am Ende - der schlimmste Fall: aiohttp bricht damit mit
+      "Potential header injection attack" ab, bevor ueberhaupt eine Anfrage rausgeht.
+      Im Chat steht dann nur "Anfrage fehlgeschlagen", und im Log eine Meldung ueber
+      einen Angriff, die mit der tatsaechlichen Ursache nichts zu tun hat.
+
+    Dieselbe Ueberlegung wie bei ``OpenAICompatibleClient._normalize_base_url``: was beim
+    Einfuegen erkennbar schiefgehen kann, wird hier geradegezogen, statt dem Nutzer als
+    nicht zuordenbares 401 vorgesetzt zu werden.
+    """
+
+    if not key:
+        return ""
+    return _BEARER_PREFIX.sub("", key.strip()).strip()
+
+
+class InsecureEndpointError(RuntimeError):
+    """Ein API-Key soll unverschluesselt an einen fremden Host gehen.
+
+    Wird im Konstruktor der Cloud-Clients geworfen, also bevor irgendetwas das Geraet
+    verlaesst. ``conversation._client_for_session`` faengt sie und macht daraus eine
+    verstaendliche Chat-Antwort.
+    """
+
+    def __init__(self, host: str) -> None:
+        super().__init__(f"API-Key wuerde unverschluesselt an '{host}' gesendet.")
+        self.host = host
+
+
+def guard_api_key_transport(url: str, api_key: str) -> None:
+    """Verhindert, dass ein API-Key im Klartext an einen fremden Host geht.
+
+    Ein Tippfehler in der Basis-URL ("http" statt "https", oder ein falscher Host)
+    genuegte bisher, um den Schluessel unverschluesselt an einen Dritten zu schicken -
+    unbemerkt, weil die Anfrage danach einfach mit 401 scheitert.
+
+    Geprueft wird nur der ausdrueckliche Fall ``http://`` zu einem nicht-lokalen Host.
+    Fehlt das Schema ganz, scheitert die Anfrage ohnehin beim Aufbau; dort zusaetzlich
+    den Key zurueckzuhalten wuerde die Fehlersuche nur verwirren.
+    """
+
+    if not api_key:
+        return  # Lokale Endpunkte (LM Studio, Ollama) brauchen keinen Key.
+    parsed = urlparse(url)
+    if parsed.scheme != "http":
+        return
+    host = (parsed.hostname or "").lower()
+    if host not in _LOCAL_HOSTS:
+        raise InsecureEndpointError(host or url)
 
 
 class LLMHTTPError(RuntimeError):
