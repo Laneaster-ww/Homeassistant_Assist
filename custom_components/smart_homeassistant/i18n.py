@@ -108,10 +108,6 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "de": "Entschuldigung, ich konnte die Dokumentationsfrage nicht verarbeiten.",
         "en": "Sorry, I couldn't process the documentation question.",
     },
-    "docs_mode_disabled": {
-        "de": "Der Dokumentationsmodus ist in der Smart-Homeassistant-Policy deaktiviert.",
-        "en": "Documentation mode is disabled in the Smart Homeassistant policy.",
-    },
     "docs_not_found": {
         "de": (
             "Dazu finde ich in der gespeicherten Home-Assistant-Dokumentation keine "
@@ -181,18 +177,6 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "de": "nicht gefunden",
         "en": "not found",
     },
-    "dropped_entities_note": {
-        "de": "nicht vorhandene Entities wurden ignoriert: {entities}",
-        "en": "non-existent entities were ignored: {entities}",
-    },
-    "layout_not_optimal_note": {
-        "de": "Layout nicht optimal: {problem}",
-        "en": "Layout not optimal: {problem}",
-    },
-    "hint_prefix": {
-        "de": "(Hinweis: {notes})",
-        "en": "(Note: {notes})",
-    },
     "steps_preview_header": {
         "de": "Geplante Schritte:",
         "en": "Planned steps:",
@@ -232,6 +216,14 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
             "Please change the model's server address to https:// ('Switch model' in "
             "the chat window)."
         ),
+    },
+    "dashboard_areas_preview": {
+        "de": "Bereiche im Dashboard: {areas}",
+        "en": "Areas in the dashboard: {areas}",
+    },
+    "unknown_areas_note": {
+        "de": "(Hinweis: diese Bereiche gibt es nicht und wurden weggelassen: {areas})",
+        "en": "(Note: these areas do not exist and were left out: {areas})",
     },
     "no_provider_configured": {
         "de": (

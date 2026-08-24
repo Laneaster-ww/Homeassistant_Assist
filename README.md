@@ -93,8 +93,7 @@ Zum Ausprobieren mit Docker liegt eine `docker-compose.yml` bei.
 | `llm_clients.py` | Provider-übergreifende Clients (Ollama, OpenAI, Anthropic, Gemini) |
 | `ollama_client.py` | Ollama-Client, Antwortschema `LLMOutput`, System-Prompt |
 | `automations.py` | Automationen prüfen und aktivieren |
-| `dashboard.py` | Dashboards anlegen und löschen |
-| `dashboard_design.py` | Layout-Prüfung und Kartengestaltung |
+| `dashboard.py` | Dashboards anlegen und löschen (Inhalt: HA-Bereichsstrategie) |
 | `docs_knowledge.py` | Offline-Doku und Abruf für Dokumentationsfragen |
 | `entity_filter.py` | Relevanz-Vorauswahl der Entity-Listen im Prompt |
 | `text_format.py` | Umlaut-Nachbearbeitung der Modellantworten |

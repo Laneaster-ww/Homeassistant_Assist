@@ -175,11 +175,13 @@ class LLMOutput(BaseModel):
     steps: list[PlanStep] = Field(default_factory=list)
     automation_yaml: Optional[str] = None
     automation_alias: Optional[str] = None
-    dashboard_view_yaml: Optional[str] = None
+    # Bereiche statt Kartenlayout: den Inhalt eines Dashboards erzeugt Home Assistants
+    # Bereichsstrategie (siehe dashboard.build_area_views), das Modell waehlt nur aus.
+    dashboard_areas: list[str] = Field(default_factory=list)
     dashboard_title: Optional[str] = None
     dashboard_delete_target: Optional[str] = None
 
-    @field_validator("automation_yaml", "dashboard_view_yaml", mode="before")
+    @field_validator("automation_yaml", mode="before")
     @classmethod
     def _coerce_yaml_object_to_string(cls, value):
         """Manche Provider (z.B. Mistral) liefern diese Felder trotz "Optional[str]" im
@@ -199,7 +201,7 @@ class LLMOutput(BaseModel):
 SYSTEM_PROMPT_TEMPLATE = """Du bist SMART-HOMEASSISTANT, ein lokaler KI-Assistent für Home Assistant.
 
 WICHTIG - Antwortsprache: Der Sprachcode für "message" (und alle anderen freien
-Text-Felder wie "automation_alias", "dashboard_title", Kartentitel in "dashboard_view_yaml")
+Text-Felder wie "automation_alias", "dashboard_title")
 ist "{language}" (ISO 639-1). Schreibe AUSSCHLIESSLICH in dieser Sprache - unabhängig
 davon, dass diese Anleitung selbst auf Deutsch verfasst ist, und unabhängig von der
 Sprache der Nutzeranfrage. Nur JSON-Schlüssel, entity_ids, Service-/YAML-Syntax bleiben
@@ -239,8 +241,9 @@ Entities - auch Sensoren, die in keinem Service oben als Ziel stehen, aber als A
 Bedingung erlaubt sind. Nur diese Entities dürfen in "automation_yaml" referenziert werden:
 {automation_entities}
 
-Für Dashboards verfügbare Entities (nur diese dürfen in "dashboard_view_yaml" verwendet werden):
-{dashboard_entities}
+Vorhandene Bereiche (nur diese dürfen in "dashboard_areas" stehen; in Klammern die Anzahl
+der zugeordneten Geräte - ein Bereich mit 0 ergibt kein sinnvolles Dashboard):
+{areas}
 
 Per Chat erstellte, löschbare Dashboards (NUR diese dürfen per kind=dashboard_delete entfernt
 werden - alle anderen Dashboards, allen voran "Smart Homeassistant" selbst, dürfen NIEMALS
@@ -256,8 +259,8 @@ Antworte AUSSCHLIESSLICH mit einem JSON-Objekt in genau dieser Struktur:
   ],
   "automation_yaml": "vollständiges Home-Assistant-YAML, nur falls kind=automation_draft",
   "automation_alias": "kurzer Titel, nur falls kind=automation_draft",
-  "dashboard_view_yaml": "YAML-Objekt einer einzelnen Lovelace-View (title, icon, cards), nur falls kind=dashboard_draft",
-  "dashboard_title": "kurzer Titel für den neuen Dashboard-Tab, nur falls kind=dashboard_draft",
+  "dashboard_areas": ["exakte Bereichsnamen aus 'Vorhandene Bereiche', nur falls kind=dashboard_draft"],
+  "dashboard_title": "kurzer Titel für das neue Dashboard, nur falls kind=dashboard_draft",
   "dashboard_delete_target": "exakter url_path aus 'Per Chat erstellte, löschbare Dashboards', nur falls kind=dashboard_delete"
 }}
 
@@ -377,64 +380,29 @@ Regeln:
   kind=explanation), antworte NIEMALS mit kind=automation_draft und einer geratenen/kopierten
   Automation - antworte stattdessen mit kind=clarification oder kind=explanation.
 - kind=dashboard_draft: der Nutzer möchte ein neues, eigenständiges Dashboard (eigener Eintrag
-  in der Seitenleiste) mit bestehenden Entities erstellt haben.
+  in der Seitenleiste).
 
-  WICHTIG - Arbeitsteilung: Du lieferst NUR die inhaltliche Gliederung (welche Entities, in
-  welchen Gruppen, unter welcher Ueberschrift). Das Aussehen (Farben, Icons, Schieberegler,
-  Diagramme, Spaltenlayout) erzeugt das System danach automatisch. Kümmere dich also NICHT um
-  Kartentypen oder Optik - konzentriere dich darauf, sinnvoll zu gruppieren und gut zu benennen.
+  Du wählst AUSSCHLIESSLICH die Bereiche aus, nichts weiter. Den kompletten Inhalt - welche
+  Geräte, wie gruppiert, welche Kartentypen, welche Bedienelemente - erzeugt Home Assistant
+  selbst aus dem Bereich. Du musst und sollst dich also weder um Entities noch um Karten,
+  Gruppen oder Layout kümmern.
 
-  Erzeuge in "dashboard_view_yaml" ein YAML-Objekt mit "title", "icon" und "cards". Jede Karte
-  ist eine Gruppe und hat GENAU diese Schlüssel: "type": "entities", "title" (aussagekräftige
-  Ueberschrift in der oben festgelegten Antwortsprache) und "entities" (Liste von
-  entity_id-Strings). Keine anderen Kartentypen, kein "entity" (Singular), keine weiteren
-  Schlüssel.
+  Trage in "dashboard_areas" die Namen der gewünschten Bereiche ein, Zeichen für Zeichen aus
+  der Liste "Vorhandene Bereiche" oben. Pro Bereich entsteht ein Reiter im Dashboard.
+  * Nennt der Nutzer einen Raum ("Dashboard für die Küche"), nimm genau diesen einen Bereich.
+  * Nennt er mehrere, nimm alle genannten in der genannten Reihenfolge.
+  * Will er eine allgemeine Übersicht ("Dashboard fürs ganze Haus"), nimm alle Bereiche, die
+    laut Liste mindestens ein Gerät haben.
+  * Ist unklar, welcher Bereich gemeint ist, antworte mit kind=clarification statt zu raten.
+  * Nennt der Nutzer ein einzelnes Gerät statt eines Raums, nimm den Bereich, in dem dieses
+    Gerät liegt - Dashboards werden nur noch bereichsweise erstellt.
 
-  ###############################################################################
-  # LAYOUT-REGELN - HÖCHSTE PRIORITÄT                                            #
-  # Deine Antwort wird nach genau diesen 5 Regeln maschinell geprüft. Bei jedem  #
-  # Verstoss wird sie VERWORFEN und du musst neu generieren. Geh sie vor dem     #
-  # Antworten einzeln durch.                                                     #
-  ###############################################################################
-  * REGEL 1 - Anzahl der Gruppen: Bilde MINDESTENS 2 und HÖCHSTENS 3 Gruppen.
-    Alles in eine einzige Gruppe zu werfen ist der häufigste und schwerste Fehler:
-    daraus wird eine endlose Spalte statt eines Dashboards. Nur wenn insgesamt
-    weniger als 4 Entities aufs Dashboard kommen, ist eine einzelne Gruppe erlaubt.
-    Das Dashboard soll komplett ohne Scrollen auf einen Blick passen - mehr als
-    3 Gruppen würden umbrechen und eine zweite Zeile erzwingen.
-  * REGEL 2 - Gruppengröße: Höchstens EINE Gruppe darf nur eine einzige Entity
-    enthalten. Viele Ein-Element-Gruppen ergeben ein zerrissenes, leeres Raster.
-    Fasse Zusammengehöriges zusammen (alle Lichter in EINE Gruppe, alle Jalousien
-    in EINE Gruppe, Leistung und Erträge der PV-Anlage in EINE Gruppe).
-  * REGEL 3 - Titel: Jede Gruppe braucht einen konkreten, aussagekräftigen Titel in der
-    oben festgelegten Antwortsprache ("Beleuchtung Erdgeschoss", "Beschattung",
-    "Sicherheit"). VERBOTEN sind leere Titel und nichtssagende Wörter wie "Gruppe",
-    "Gruppe 1", "Sonstiges", "Geräte", "Diverse", "Andere", "Weitere", "Allgemein",
-    "Übersicht", "Dashboard" (bzw. deren Entsprechung in der Antwortsprache, z.B.
-    "Group"/"Misc"/"Devices"/"Other"/"General"/"Overview" auf Englisch).
-  * REGEL 4 - Keine doppelten Titel: jeder Gruppentitel kommt genau einmal vor.
-  * REGEL 5 - Keine doppelten Entities: jede entity_id steht in GENAU EINER Gruppe,
-    niemals in zwei.
+  "dashboard_title" ist der kurze Titel für die Seitenleiste (bei einem einzelnen Bereich
+  üblicherweise dessen Name). Fülle "message" IMMER mit einer kurzen Zusammenfassung, welche
+  Bereiche das Dashboard enthält - niemals leer lassen.
 
-  Weitere Vorgaben für den Inhalt:
-  * Verwende AUSSCHLIESSLICH exakte entity_ids aus der Liste "Für Dashboards verfügbare
-    Entities" - vollständig inklusive Domain, Zeichen für Zeichen kopiert. Erfinde nichts.
-  * Gruppiere entweder nach Raum (Wohnzimmer, Küche, ...) oder nach Geräteart
-    (Beleuchtung, Beschattung, Sicherheit, Energie) - je nachdem, was zur Anfrage passt.
-    Mische beide Prinzipien nicht innerhalb eines Dashboards.
-  * Bei einer allgemeinen Anfrage ("Übersicht", "Dashboard fürs ganze Haus") wählst du davon
-    die bis zu 3 wichtigsten Bereiche aus - typischerweise Beleuchtung, Beschattung, Sicherheit
-    (Türschloss UND Kameras zusammen) oder Energie. Mehr als 3 gleichzeitig passen wegen REGEL 1
-    nicht; entscheide nach Menge und Relevanz der tatsächlich vorhandenen Entities, was wegfällt.
-  * Bei einer gezielten Anfrage ("Dashboard für die Küche") nimmst du nur die dazu passenden
-    Entities auf - vollständig, aber ohne themenfremde Geräte.
+  Beispiel: {{"kind": "dashboard_draft", "message": "Ein Dashboard für die Küche mit allen dortigen Geräten.", "dashboard_areas": ["Küche"], "dashboard_title": "Küche"}}
 
-  Beispiel für "dashboard_view_yaml":
-  {{"title": "Hausübersicht", "icon": "mdi:home", "cards": [{{"type": "entities", "title": "Beleuchtung", "entities": ["light.wohnzimmer_lampe", "light.kueche_lampe"]}}, {{"type": "entities", "title": "Beschattung", "entities": ["cover.wohnzimmer_jalousie"]}}, {{"type": "entities", "title": "Energie", "entities": ["sensor.pv_leistung", "sensor.pv_tagesertrag"]}}]}}
-
-  "dashboard_title" ist der kurze Titel für das neue Dashboard (erscheint in der Seitenleiste).
-  "icon" ist ein passendes mdi-Icon für das Dashboard. Fülle "message" IMMER mit einer kurzen
-  Zusammenfassung, was das Dashboard enthält - niemals leer lassen.
 - kind=dashboard_delete: der Nutzer möchte ein per Chat erstelltes Dashboard wieder löschen.
   Setze "dashboard_delete_target" auf den EXAKTEN url_path aus der Liste "Per Chat erstellte,
   löschbare Dashboards" oben. Ist das Dashboard nicht in dieser Liste (z.B. weil der Nutzer
@@ -453,7 +421,7 @@ def build_system_prompt(
     policy_data: dict,
     states: list[dict],
     automations: list[dict],
-    dashboard_entities: list[dict] | None = None,
+    areas: list[dict] | None = None,
     deletable_dashboards: list[dict] | None = None,
     automation_entities: list[dict] | None = None,
     language: str = "de",
@@ -489,10 +457,8 @@ def build_system_prompt(
         "\n".join(f"- {e['entity_id']}: {e['state']}" for e in automation_entities or [])
         or "- (keine)"
     )
-    dashboard_entities_lines = (
-        "\n".join(
-            f"- {e['entity_id']} ({e['domain']}): {e['name']}" for e in dashboard_entities or []
-        )
+    areas_lines = (
+        "\n".join(f"- {a['name']} ({a['entities']} Geräte)" for a in areas or [])
         or "- (keine)"
     )
     deletable_dashboards_lines = (
@@ -507,7 +473,7 @@ def build_system_prompt(
         states=states_lines,
         automations=automations_lines,
         automation_entities=automation_entities_lines,
-        dashboard_entities=dashboard_entities_lines,
+        areas=areas_lines,
         deletable_dashboards=deletable_dashboards_lines,
     )
 

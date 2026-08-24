@@ -11,8 +11,8 @@ Die Aufteilung der Module:
 * ``providers``  - Verwaltung mehrerer KI-Modell-Anbindungen (Ollama, OpenAI, ...).
 * ``llm_clients`` - Provider-uebergreifende Clients inkl. ``ollama_client.OllamaClient``.
 * ``conversation``  - Chat-Einstiegspunkt, der alles zusammenfuehrt.
-* ``automations`` / ``dashboard`` / ``dashboard_design`` - die vom Chat aus
-  erzeugbaren Artefakte.
+* ``automations`` / ``dashboard`` - die vom Chat aus erzeugbaren Artefakte. Den
+  Inhalt generierter Dashboards erzeugt Home Assistants Bereichsstrategie selbst.
 """
 
 from __future__ import annotations

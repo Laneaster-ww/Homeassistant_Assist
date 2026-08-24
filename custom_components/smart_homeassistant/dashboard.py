@@ -36,16 +36,17 @@ from typing import Callable
 import yaml
 
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import slugify
 from homeassistant.util.yaml import loader as ha_yaml_loader
 
-from .broker import BrokerError, canonicalize_object_id
+from .broker import BrokerError
 from .const import DOMAIN
-from .dashboard_design import render_designed_view
 from .files import read_text, write_text
 from .locks import get_file_lock
-from .text_format import name_map, normalize_umlauts
+from .text_format import canonical
 
 CONFIGURATION_YAML_FILENAME = "configuration.yaml"
 DASHBOARD_DIRECTORY = "smart_homeassistant_dashboards"
@@ -342,200 +343,116 @@ async def delete_dashboard(hass: HomeAssistant, url_path: str) -> dict:
     return {"title": entry["title"], "url_path": url_path, "restart_required": True}
 
 
-async def list_known_entities(hass: HomeAssistant) -> list[dict]:
-    """Alle Entities, aus denen das LLM fuer Dashboards waehlen darf.
+async def list_areas(hass: HomeAssistant) -> list[dict]:
+    """Alle Bereiche mit der Anzahl darin zugeordneter Entities.
 
-    Die Liste wird bewusst kurz gehalten (siehe die Filter oben): je weniger
-    irrelevante Eintraege darin stehen, desto zuverlaessiger findet das Modell
-    die passenden.
+    Diese Liste geht in den System-Prompt: das Modell waehlt Bereiche aus, nicht mehr
+    einzelne Entities. Die Anzahl steht dabei, damit leere Bereiche erkennbar sind und
+    nicht als Dashboard vorgeschlagen werden.
+
+    Gezaehlt wird so, wie Home Assistant selbst zuordnet - erst die Entity, ersatzweise
+    ihr Geraet. Konfigurations- und Diagnose-Entities sowie vom Nutzer ausgeblendete
+    zaehlen nicht mit, weil die Bereichsstrategie sie ohnehin nicht anzeigt.
     """
 
-    registry = er.async_get(hass)
-    entities = []
-    for state in hass.states.async_all():
-        if state.domain in _EXCLUDED_DOMAINS:
+    areas = ar.async_get(hass)
+    entities = er.async_get(hass)
+    devices = dr.async_get(hass)
+
+    anzahl: dict[str, int] = {}
+    for entry in entities.entities.values():
+        if entry.entity_category is not None or entry.hidden_by is not None:
             continue
-        entry = registry.async_get(state.entity_id)
-        # Diagnose-/Konfigurations-Entities und vom Nutzer ausgeblendete gehoeren
-        # nicht auf ein Uebersichts-Dashboard.
-        if entry is not None and (entry.entity_category is not None or entry.hidden_by is not None):
+        area_id = entry.area_id
+        if area_id is None and entry.device_id:
+            device = devices.async_get(entry.device_id)
+            area_id = device.area_id if device else None
+        if area_id:
+            anzahl[area_id] = anzahl.get(area_id, 0) + 1
+
+    return [
+        {"area_id": area.id, "name": area.name, "entities": anzahl.get(area.id, 0)}
+        for area in sorted(areas.async_list_areas(), key=lambda a: a.name)
+    ]
+
+
+def resolve_dashboard_areas(hass: HomeAssistant, areas) -> tuple[list[dict], list[str]]:
+    """Prueft die vom Modell genannten Bereiche und loest sie kanonisch auf.
+
+    Akzeptiert die area_id ebenso wie den Anzeigenamen, letzteren umlauttolerant (siehe
+    ``text_format.canonical``) - das Modell schreibt mal "kuche", mal "Kueche", mal
+    "Küche". Anders als frueher bei den Entities ist die Menge klein und geschlossen,
+    eine Aufloesung ist damit eindeutig und braucht keine Heuristik.
+
+    Rueckgabe: (erkannte Bereiche in der genannten Reihenfolge, nicht erkannte Angaben).
+    Wirft ``BrokerError``, wenn gar nichts uebrig bleibt.
+    """
+
+    alle = list(ar.async_get(hass).async_list_areas())
+    nach_id = {area.id: area for area in alle}
+    nach_name = {canonical(area.name): area for area in alle}
+
+    erkannt: list[dict] = []
+    unbekannt: list[str] = []
+    for roh in areas or []:
+        if not isinstance(roh, str):
             continue
-        if entry is not None and entry.platform in _EXCLUDED_PLATFORMS:
-            continue
-        entities.append(
-            {
-                "entity_id": state.entity_id,
-                "name": state.attributes.get("friendly_name", state.entity_id),
-                "domain": state.domain,
-            }
-        )
-    entities.sort(key=lambda e: e["entity_id"])
-    return entities
+        area = nach_id.get(roh.strip()) or nach_name.get(canonical(roh))
+        if area is None:
+            unbekannt.append(roh)
+        elif all(a["area_id"] != area.id for a in erkannt):
+            erkannt.append({"area_id": area.id, "name": area.name})
 
-
-def _object_id_index(existing_ids: set[str]) -> dict[str, list[str]]:
-    """Ordnet jedem Objekt-Namen (Teil nach dem Punkt) die passenden Entity-IDs zu.
-
-    Grundlage fuer :func:`_normalize_entity_refs`: nur bei genau einem Treffer
-    ist eine Korrektur eindeutig.
-    """
-
-    index: dict[str, list[str]] = {}
-    for eid in existing_ids:
-        _, _, object_id = eid.partition(".")
-        index.setdefault(object_id, []).append(eid)
-        canonical = canonicalize_object_id(object_id)
-        if canonical != object_id:
-            index.setdefault(canonical, []).append(eid)
-    return index
-
-
-def _normalize_entity_refs(node, existing: set[str], index: dict[str, list[str]]) -> None:
-    """Korrigiert Entity-Referenzen in-place, wenn eindeutig moeglich:
-
-    - fehlende Domain, z.B. "licht_wohnzimmer" statt "input_boolean.licht_wohnzimmer"
-      (analog broker._normalize_entity_id)
-    - falsche Domain, z.B. "light.licht_wohnzimmer", obwohl die Entity nur als
-      "input_boolean.licht_wohnzimmer" existiert - das LLM nimmt gerne die "logische"
-      HA-Domain (light/switch/...) an statt die tatsaechlich verwendete.
-
-    Bleibt der Objekt-Name (Teil nach dem Punkt) mehrdeutig oder unbekannt, wird nichts
-    veraendert - danach greift unveraendert die Existenz-Pruefung/Filterung.
-    """
-
-    def fix(value: str) -> str:
-        if value in existing:
-            return value
-        object_id = value.split(".", 1)[1] if "." in value else value
-        matches = index.get(object_id) or index.get(canonicalize_object_id(object_id))
-        return matches[0] if matches and len(matches) == 1 else value
-
-    if isinstance(node, dict):
-        for key, value in list(node.items()):
-            if key == "entity" and isinstance(value, str):
-                node[key] = fix(value)
-            elif key == "entities" and isinstance(value, list):
-                for i, item in enumerate(value):
-                    if isinstance(item, str):
-                        value[i] = fix(item)
-                    elif isinstance(item, dict) and isinstance(item.get("entity"), str):
-                        item["entity"] = fix(item["entity"])
-                    elif isinstance(item, dict):
-                        _normalize_entity_refs(item, existing, index)
-            else:
-                _normalize_entity_refs(value, existing, index)
-    elif isinstance(node, list):
-        for item in node:
-            _normalize_entity_refs(item, existing, index)
-
-
-def _filter_known_entities(cards: list, existing: set[str]) -> tuple[list, set[str]]:
-    """Entfernt Referenzen auf nicht existierende Entities statt die ganze Ansicht abzulehnen.
-
-    Anders als bei Automationen/Aktionen (die reale Effekte ausloesen) ist ein Dashboard rein
-    visuell - kleine Modell-Halluzinationen (z.B. das ueberall in HA-Tutorials vorkommende
-    "group.all_lights") sollen nicht die komplette Anfrage scheitern lassen, wenn der Rest
-    der Ansicht sinnvoll ist. Karten, die dadurch keine gueltige Entity mehr haetten, fallen
-    komplett weg.
-
-    Rueckgabe: (behaltene Karten, entfernte Entity-IDs).
-    """
-
-    dropped: set[str] = set()
-    kept_cards = []
-    for card in cards:
-        if not isinstance(card, dict):
-            continue
-        card = dict(card)  # Kopie: die Eingabe bleibt unveraendert.
-        if "entity" in card:
-            if card["entity"] not in existing:
-                dropped.add(card["entity"])
-                continue
-        if "entities" in card and isinstance(card["entities"], list):
-            filtered_entities = []
-            for item in card["entities"]:
-                # Eintraege sind entweder "light.xyz" oder {"entity": "light.xyz", ...};
-                # alles andere (z.B. Trennzeilen) bleibt unangetastet.
-                eid = (
-                    item
-                    if isinstance(item, str)
-                    else (item.get("entity") if isinstance(item, dict) else None)
-                )
-                if eid is None or eid in existing:
-                    filtered_entities.append(item)
-                else:
-                    dropped.add(eid)
-            if not filtered_entities:
-                continue
-            card["entities"] = filtered_entities
-        kept_cards.append(card)
-    return kept_cards, dropped
-
-
-def validate_dashboard_view_yaml(hass: HomeAssistant, yaml_text: str) -> tuple[dict, set[str]]:
-    """Prueft und bereinigt die vom Modell gelieferte View.
-
-    Drei Schritte: syntaktische Pruefung, Normalisierung fehlender oder falscher
-    Domains und Herausfiltern nicht existierender Entities. Gibt die (ggf.
-    bereinigte) View sowie die Menge der dabei entfernten, nicht existierenden
-    Entity-IDs zurueck.
-    """
-
-    try:
-        parsed = yaml.safe_load(yaml_text)
-    except yaml.YAMLError as exc:
-        raise BrokerError(f"Ungültiges YAML: {exc}", "invalid_yaml") from exc
-
-    if not isinstance(parsed, dict):
-        raise BrokerError("Dashboard-Ansicht muss ein YAML-Objekt sein.", "invalid_yaml")
-
-    cards = parsed.get("cards")
-    if not isinstance(cards, list) or not cards:
-        raise BrokerError("Dashboard-Ansicht muss mindestens eine Karte enthalten.", "invalid_yaml")
-
-    existing = {state.entity_id for state in hass.states.async_all()}
-    _normalize_entity_refs(cards, existing, _object_id_index(existing))
-
-    kept_cards, dropped = _filter_known_entities(cards, existing)
-    if not kept_cards:
+    if not erkannt:
+        verfuegbar = ", ".join(area.name for area in alle) or "(keine)"
+        genannt = ", ".join(str(a) for a in (areas or [])) or "(nichts genannt)"
         raise BrokerError(
-            f"Dashboard verwendet ausschließlich nicht existierende Entities: {', '.join(sorted(dropped))}",
-            "entity_not_allowed",
+            f"Keiner der genannten Bereiche existiert: {genannt}. "
+            f"Vorhanden sind: {verfuegbar}.",
+            "unknown_area",
         )
+    return erkannt, unbekannt
 
-    # Nur die sichtbaren Titel: die Entity-Listen bleiben unangetastet, dort muss jede
-    # ID Zeichen für Zeichen stimmen (siehe text_format).
-    namen = name_map(hass)
-    if isinstance(parsed.get("title"), str):
-        parsed["title"] = normalize_umlauts(parsed["title"], namen)
-    for card in kept_cards:
-        if isinstance(card.get("title"), str):
-            card["title"] = normalize_umlauts(card["title"], namen)
 
-    parsed["cards"] = kept_cards
-    return parsed, dropped
+def build_area_views(areas: list[dict]) -> list[dict]:
+    """Baut je Bereich eine View und ueberlaesst deren Inhalt Home Assistant.
+
+    Die Strategie ``area`` gruppiert die Entities des Bereichs selbst (Licht, Klima,
+    Beschattung, Medien, Sicherheit, Aktionen, Sonstiges), setzt Ueberschriften mit
+    passenden Icons, waehlt die Kartentypen und haengt die richtigen Bedienelemente an -
+    Helligkeitsregler, Jalousie-Tasten, Schloss-Befehle, Zieltemperatur. Temperatur- und
+    Feuchtigkeitswerte des Bereichs erscheinen automatisch als Badges.
+
+    Genau das hat frueher ``dashboard_design.py`` von Hand nachgebaut. Ueber die
+    Strategie folgen generierte Dashboards jetzt automatisch dem, was Home Assistant in
+    kuenftigen Versionen als gute Bereichsdarstellung ansieht - ohne dass hier Code
+    nachgezogen werden muss.
+    """
+
+    return [
+        {
+            "title": area["name"],
+            "path": slugify(area["name"]) or area["area_id"],
+            "strategy": {"type": "area", "area": area["area_id"]},
+        }
+        for area in areas
+    ]
 
 
 async def activate_dashboard_draft(hass: HomeAssistant, payload: dict) -> dict:
     """Wird erst nach expliziter Nutzerbestaetigung aufgerufen.
 
-    Legt ein neues, eigenstaendiges YAML-Dashboard an (eigene Datei + eigener
-    Sidebar-Eintrag), analog zu den bereits bestehenden Dashboards. Der Eintrag
-    in configuration.yaml wird nach dem Schreiben mit Home Assistants eigenem
-    YAML-Loader re-validiert; schlaegt das fehl, wird alles zurueckgerollt.
+    Legt ein neues, eigenstaendiges YAML-Dashboard an: eine View je gewaehltem Bereich,
+    deren Inhalt Home Assistants Bereichsstrategie erzeugt. Der Eintrag in
+    configuration.yaml wird nach dem Schreiben mit Home Assistants eigenem YAML-Loader
+    re-validiert; schlaegt das fehl, wird alles zurueckgerollt.
     """
 
-    # Erneute Pruefung: zwischen Vorschlag und Bestaetigung koennen Entities
-    # verschwunden sein.
-    parsed, _dropped = validate_dashboard_view_yaml(hass, payload["yaml"])
-    title = payload.get("title") or parsed.get("title") or "KI-Dashboard"
-    icon = parsed.pop("icon", None) or "mdi:view-dashboard"
-    parsed["title"] = title
-
-    # Das LLM liefert nur die semantische Gruppierung; das eigentliche Layout
-    # (Sektionen, Tile-Karten mit Bedienelementen, Gauges, Farben) baut die
-    # Design-Schicht, damit jedes generierte Dashboard gleich gut aussieht.
-    view = render_designed_view(hass, parsed)
+    # Erneute Pruefung: zwischen Vorschlag und Bestaetigung koennen Bereiche umbenannt
+    # oder geloescht worden sein.
+    areas, _unbekannt = resolve_dashboard_areas(hass, payload.get("areas"))
+    title = payload.get("title") or (areas[0]["name"] if len(areas) == 1 else "KI-Dashboard")
+    views = build_area_views(areas)
 
     async with get_file_lock(hass):
         existing = await hass.async_add_executor_job(_existing_dashboard_url_paths, hass)
@@ -546,7 +463,7 @@ async def activate_dashboard_draft(hass: HomeAssistant, payload: dict) -> dict:
         # Zuerst die Dashboard-Datei: sie ist fuer sich genommen wirkungslos, solange
         # configuration.yaml sie nicht referenziert.
         await hass.async_add_executor_job(
-            _write_yaml_dict, dashboard_path, {"title": title, "views": [view]}
+            _write_yaml_dict, dashboard_path, {"title": title, "views": views}
         )
 
         config_path = _configuration_yaml_path(hass)
@@ -554,7 +471,7 @@ async def activate_dashboard_draft(hass: HomeAssistant, payload: dict) -> dict:
         entry = {
             "mode": "yaml",
             "title": title,
-            "icon": icon,
+            "icon": payload.get("icon") or "mdi:view-dashboard",
             "show_in_sidebar": True,
             "filename": filename,
         }
@@ -575,8 +492,14 @@ async def activate_dashboard_draft(hass: HomeAssistant, payload: dict) -> dict:
             original_text,
             new_text,
             _verify,
-            "Anlegen des Dashboards fehlgeschlagen, configuration.yaml wurde nicht verändert",
+            "Anlegen des Dashboards fehlgeschlagen, configuration.yaml wurde nicht veraendert",
             on_rollback=_remove_half_written_file,
         )
 
-    return {"title": title, "url_path": url_path, "filename": filename, "restart_required": True}
+    return {
+        "title": title,
+        "url_path": url_path,
+        "filename": filename,
+        "areas": [a["name"] for a in areas],
+        "restart_required": True,
+    }

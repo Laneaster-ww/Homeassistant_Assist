@@ -30,13 +30,13 @@ from __future__ import annotations
 
 import re
 
-# Ab wie vielen Eintraegen eine Liste ueberhaupt gekuerzt wird. Bewusst unterschiedlich
-# je nach Verwendungszweck: ein Fehler auf dem handelnden Pfad (Services, Automationen)
-# schaltet real etwas Falsches oder gar nichts, ein Fehler auf dem Dashboard-Pfad ist
-# rein optisch und wird ohnehin nachtraeglich gefiltert. Der handelnde Pfad wird deshalb
-# erst bei deutlich groesseren Listen angefasst.
+# Ab wie vielen Eintraegen eine Liste ueberhaupt gekuerzt wird. Bewusst hoch angesetzt:
+# betroffen ist nur noch der handelnde Pfad (Service-Ziele, Automation-Entities), und
+# dort schaltet eine falsche Vorauswahl real etwas Falsches oder blockiert die Anfrage
+# ganz. Die Bereichsliste fuer Dashboards wird gar nicht mehr gekuerzt - sie ist kurz,
+# und eine fehlende Zeile hiesse, dass ein real vorhandener Raum fuer das Modell nicht
+# existiert.
 ACTION_LIST_THRESHOLD = 40
-DASHBOARD_LIST_THRESHOLD = 20
 
 # Weniger Treffer als das gelten als "zu wenig Signal" - dann lieber die volle Liste.
 MINIMUM_SELECTED = 3

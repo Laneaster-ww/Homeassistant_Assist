@@ -57,14 +57,12 @@ from .const import (
 from .dashboard import (
     activate_dashboard_draft,
     delete_dashboard,
+    list_areas,
     list_deletable_dashboards,
-    list_known_entities,
-    validate_dashboard_view_yaml,
+    resolve_dashboard_areas,
 )
-from .dashboard_design import check_layout_quality
 from .entity_filter import (
     ACTION_LIST_THRESHOLD,
-    DASHBOARD_LIST_THRESHOLD,
     policy_data_for_prompt,
     relevance_query,
     select_relevant,
@@ -135,14 +133,10 @@ NO_WORDS = {
     "negativ",
 }
 
-# Versuche fuer die Dashboard-Gliederung inklusive Neugenerierung bei Layout-Maengeln.
-# Mehr als drei lohnen sich nicht: was das Modell dreimal nicht trifft, trifft es
+# Versuche fuer den Automation-Entwurf: kleine lokale Modelle treffen Entity-IDs oder
+# gueltiges HA-Schema nicht immer beim ersten Versuch (siehe _generate_automation).
+# Mehr als drei lohnen sich nicht - was das Modell dreimal nicht trifft, trifft es
 # meist auch beim vierten Mal nicht, und jeder Versuch kostet den Nutzer Wartezeit.
-DASHBOARD_MAX_ATTEMPTS = 3
-
-# Dieselbe Ueberlegung wie bei DASHBOARD_MAX_ATTEMPTS, fuer Automation-Entwuerfe:
-# kleine lokale Modelle treffen Entity-IDs oder gueltiges HA-Schema nicht immer
-# beim ersten Versuch (siehe _generate_automation).
 AUTOMATION_MAX_ATTEMPTS = 3
 
 # Wie viele Nachrichten (user+assistant, also die Haelfte davon Runden) ein Gespraech
@@ -470,10 +464,8 @@ class SmartHomeAssistantConversationEntity(conversation.ConversationEntity):
         """Schreibt Umlaute im Freitext einer Modellantwort aus (siehe text_format).
 
         Betrifft nur die Felder, die der Nutzer als Text zu sehen bekommt bzw. die als
-        Titel gespeichert werden. ``automation_yaml`` und ``dashboard_view_yaml`` bleiben
-        bewusst unberuehrt: dort stehen entity_ids, die Zeichen fuer Zeichen stimmen
-        muessen - deren Kartentitel normalisiert dashboard.validate_dashboard_view_yaml
-        gezielt.
+        Titel gespeichert werden. ``automation_yaml`` bleibt bewusst unberuehrt: dort
+        stehen entity_ids, die Zeichen fuer Zeichen stimmen muessen.
         """
 
         namen = self._display_names()
@@ -773,24 +765,23 @@ class SmartHomeAssistantConversationEntity(conversation.ConversationEntity):
         try:
             states = await self._relevant_states(policy)
             automations = await read_automations(self.hass)
-            dashboard_entities = await list_known_entities(self.hass)
+            areas = await list_areas(self.hass)
             deletable_dashboards = await list_deletable_dashboards(self.hass)
             automation_entities = self._automation_entities(policy)
             # Nur was zur Anfrage passt in den Prompt (siehe entity_filter). Betrifft
             # ausschliesslich die Darstellung - policy.data bleibt vollstaendig, der
             # Broker prueft unveraendert dagegen.
-            prompt_policy_data, states, automation_entities, dashboard_entities = self._shortlist(
+            prompt_policy_data, states, automation_entities = self._shortlist(
                 policy.data,
                 states,
                 automation_entities,
-                dashboard_entities,
                 relevance_query(session.history, text),
             )
             system_prompt = build_system_prompt(
                 prompt_policy_data,
                 states,
                 automations,
-                dashboard_entities,
+                areas,
                 deletable_dashboards,
                 automation_entities,
                 language,
@@ -908,41 +899,34 @@ class SmartHomeAssistantConversationEntity(conversation.ConversationEntity):
                 f"{t('activate_automation_question', language)}",
             )
 
-        # Dashboard-Entwurf: die Gliederung wird ggf. mehrfach neu erzeugt, bis sie
-        # den Layout-Regeln genuegt (siehe _generate_dashboard).
-        if result.kind == "dashboard_draft" and result.dashboard_view_yaml:
-            best, dropped, problems, last_error = await self._generate_dashboard(
-                client, messages, result
-            )
-
-            if best is None:
+        # Dashboard-Entwurf: das Modell nennt nur Bereiche, den Inhalt erzeugt Home
+        # Assistants Bereichsstrategie (siehe dashboard.build_area_views). Damit gibt es
+        # kein Layout mehr, das misslingen koennte - und deshalb auch keine
+        # Wiederholungsschleife wie beim Automation-Entwurf.
+        if result.kind == "dashboard_draft" and result.dashboard_areas:
+            try:
+                gewaehlt, unbekannt = resolve_dashboard_areas(self.hass, result.dashboard_areas)
+            except BrokerError as exc:
                 return self._reject(
-                    session, language, "dashboard_draft", result.message, last_error
+                    session, language, "dashboard_draft", result.message, str(exc)
                 )
 
-            # Der Verlauf soll den letzten, tatsaechlich verwendeten Entwurf zeigen.
-            result = self._normalize_output(best)
-            session.history[-1]["content"] = result.message
-
-            # Einschraenkungen des Ergebnisses offenlegen, statt sie zu verschweigen.
-            notes = []
-            if dropped:
-                notes.append(
-                    t("dropped_entities_note", language, entities=", ".join(sorted(dropped)))
-                )
-            if problems:
-                # Nach allen Versuchen bleibt die beste Variante - der Nutzer soll aber
-                # wissen, dass das Layout nicht ideal ist, statt es stillschweigend zu bekommen.
-                notes.append(t("layout_not_optimal_note", language, problem=problems[0]))
-            note = f"\n\n{t('hint_prefix', language, notes='; '.join(notes))}" if notes else ""
-
+            # Nicht erkannte Angaben offenlegen statt sie stillschweigend zu schlucken.
+            note = (
+                f"\n\n{t('unknown_areas_note', language, areas=', '.join(unbekannt))}"
+                if unbekannt
+                else ""
+            )
+            namen = ", ".join(a["name"] for a in gewaehlt)
             return self._ask_confirmation(
                 session,
                 language,
                 "dashboard_draft",
-                {"yaml": result.dashboard_view_yaml, "title": result.dashboard_title},
+                {"areas": [a["area_id"] for a in gewaehlt], "title": result.dashboard_title},
                 result.message,
-                f"{result.message}{note} {t('create_dashboard_question', language)}",
+                f"{result.message}{note}\n\n"
+                f"{t('dashboard_areas_preview', language, areas=namen)}\n"
+                f"{t('create_dashboard_question', language)}",
             )
 
         # Dashboard loeschen: nur was auch in der Liste der loeschbaren Dashboards
@@ -983,18 +967,14 @@ class SmartHomeAssistantConversationEntity(conversation.ConversationEntity):
         policy_data: dict,
         states: list[dict],
         automation_entities: list[dict],
-        dashboard_entities: list[dict],
         query: str,
-    ) -> tuple[dict, list[dict], list[dict], list[dict]]:
-        """Kuerzt die drei Entity-Listen des System-Prompts auf das zur Anfrage Passende.
+    ) -> tuple[dict, list[dict], list[dict]]:
+        """Kuerzt die Entity-Listen des System-Prompts auf das zur Anfrage Passende.
 
-        Die drei Listen werden getrennt betrachtet, weil ein Fehlgriff unterschiedlich
-        teuer ist: auf dem handelnden Pfad (Service-Ziele, Automation-Entities) schaltet
-        eine falsche Auswahl real etwas Falsches oder blockiert die Anfrage ganz, auf dem
-        Dashboard-Pfad ist sie rein optisch und wird ohnehin nachtraeglich gefiltert
-        (``dashboard._filter_known_entities``). Der handelnde Pfad bekommt deshalb die
-        deutlich hoehere Schwelle - bei den heutigen Listengroessen bleibt er unangetastet
-        und waechst erst mit der Installation hinein.
+        Betrifft nur noch den handelnden Pfad (Service-Ziele und Automation-Entities).
+        Die Bereichsliste fuer Dashboards wird nicht gekuerzt: es sind wenige, sie sind
+        kurz benannt, und eine fehlende Zeile dort hiesse, dass ein real vorhandener Raum
+        fuer das Modell nicht existiert.
 
         Der Anzeigename geht als zusaetzlicher Suchtext mit ein: die entity_id heisst
         ``light.kuche_aqara_lampe_kuche``, der Nutzer sagt aber "Deckenlampe".
@@ -1022,12 +1002,7 @@ class SmartHomeAssistantConversationEntity(conversation.ConversationEntity):
         if behalten is not None:
             automation_entities = [e for e in automation_entities if e["entity_id"] in behalten]
 
-        dashboard_kandidaten = {e["entity_id"]: e.get("name", "") for e in dashboard_entities}
-        behalten = select_relevant(dashboard_kandidaten, query, DASHBOARD_LIST_THRESHOLD)
-        if behalten is not None:
-            dashboard_entities = [e for e in dashboard_entities if e["entity_id"] in behalten]
-
-        return prompt_policy_data, states, automation_entities, dashboard_entities
+        return prompt_policy_data, states, automation_entities
 
     async def _answer_documentation_question(
         self, policy, client: LLMClient, text: str, language: str
@@ -1152,84 +1127,6 @@ class SmartHomeAssistantConversationEntity(conversation.ConversationEntity):
                 break
 
         return None, None, last_error or "Automation konnte nicht erzeugt werden.", error_code
-
-    async def _generate_dashboard(self, client, messages: list[dict], first_result):
-        """Erzeugt die Dashboard-Gliederung und laesst bei Maengeln neu generieren.
-
-        Geprueft wird zweistufig: erst ob die Entities ueberhaupt existieren, dann ob
-        die Gliederung den Layout-Regeln genuegt. Beides fliesst als konkrete
-        Rueckmeldung in den naechsten Versuch ein - ein blosses "nochmal" wuerde beim
-        selben Modell meist denselben Fehler nochmal produzieren.
-
-        Rueckgabe: (bestes Ergebnis oder None, ignorierte Entities, verbliebene
-        Layout-Maengel, letzter harter Fehler).
-        """
-
-        candidate = first_result
-        # Beste bisherige Variante als (Maengel, Ergebnis, ignorierte Entities) -
-        # falls kein Versuch fehlerfrei bleibt, wird sie am Ende genommen.
-        best: tuple[list[str], object, set[str]] | None = None
-        last_error: str | None = None
-        deadline = time.monotonic() + GENERATION_BUDGET_SECONDS
-
-        for attempt in range(DASHBOARD_MAX_ATTEMPTS):
-            try:
-                parsed, dropped = validate_dashboard_view_yaml(
-                    self.hass, candidate.dashboard_view_yaml or ""
-                )
-            # Harter Fehler: die Gliederung ist unbrauchbar (kaputtes YAML oder
-            # ausschliesslich erfundene Entities).
-            except BrokerError as exc:
-                last_error = str(exc)
-                feedback = (
-                    f"Deine Antwort wurde verworfen. Fehler: {exc} "
-                    "Nutze AUSSCHLIESSLICH exakte entity_ids Zeichen für Zeichen aus der Liste "
-                    "'Für Dashboards verfügbare Entities' oben - kopiere sie wörtlich, erfinde "
-                    "keine neuen Namen oder Domains. Antworte erneut im gleichen JSON-Format für "
-                    "dieselbe Anfrage."
-                )
-            # Die Gliederung ist verwertbar - jetzt zaehlt nur noch die Layout-Qualitaet.
-            else:
-                last_error = None
-                problems = check_layout_quality(parsed)
-                if not problems:
-                    return candidate, dropped, [], None
-
-                # Weniger Maengel als bisher -> neuer Rueckfall-Kandidat.
-                if best is None or len(problems) < len(best[0]):
-                    best = (problems, candidate, dropped)
-
-                aufzaehlung = "\n".join(f"- {p}" for p in problems)
-                feedback = (
-                    "Deine Antwort wurde wegen Verstößen gegen die LAYOUT-REGELN verworfen:\n"
-                    f"{aufzaehlung}\n"
-                    "Erzeuge die Gliederung komplett neu und halte dabei ALLE 5 LAYOUT-REGELN ein. "
-                    "Antworte erneut im gleichen JSON-Format für dieselbe Anfrage."
-                )
-
-            if attempt == DASHBOARD_MAX_ATTEMPTS - 1 or time.monotonic() >= deadline:
-                break
-
-            # Naechster Versuch: eigene Fehlantwort plus konkrete Kritik als
-            # Gespraechsverlauf mitgeben, damit das Modell sieht, was falsch war.
-            try:
-                candidate = await client.ask(
-                    messages
-                    + [
-                        {"role": "assistant", "content": candidate.model_dump_json()},
-                        {"role": "user", "content": feedback},
-                    ]
-                )
-            except Exception:  # noqa: BLE001 - LLM/Transport-Fehler beenden nur die Schleife
-                _LOGGER.exception("Retry-Anfrage für Dashboard-Entwurf fehlgeschlagen")
-                break
-
-        # Kein fehlerfreier Versuch: die am wenigsten mangelhafte Variante nehmen ...
-        if best is not None:
-            problems, result, dropped = best
-            return result, dropped, problems, None
-        # ... oder aufgeben, wenn nicht einmal eine verwertbare Gliederung kam.
-        return None, set(), [], last_error or "Dashboard konnte nicht erzeugt werden."
 
     async def _relevant_states(self, policy) -> list[dict]:
         """Aktueller Zustand aller per Policy freigegebenen Entities.
