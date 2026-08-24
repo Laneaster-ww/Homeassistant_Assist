@@ -18,5 +18,3 @@ def get_file_lock(hass: HomeAssistant) -> asyncio.Lock:
         lock = asyncio.Lock()
         domain_data[DATA_FILE_LOCK] = lock
     return lock
-
-# Auto-Sync-Hook-Test, wird gleich wieder entfernt
