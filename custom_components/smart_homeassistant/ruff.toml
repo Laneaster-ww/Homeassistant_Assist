@@ -1,0 +1,12 @@
+# Formatierungseinstellungen dieser Integration, damit ein spaeterer
+# "ruff format" den Code nicht wieder anders umbricht.
+#
+#   ruff format .        (formatieren)
+#   ruff check .         (pruefen)
+
+line-length = 100
+
+[lint.isort]
+# Wie in Home Assistant selbst: homeassistant.* ist ein eigener Block zwischen
+# den Fremdbibliotheken und den Modulen dieser Integration.
+known-first-party = ["homeassistant"]

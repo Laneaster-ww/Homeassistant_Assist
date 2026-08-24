@@ -1,0 +1,169 @@
+reload_policy:
+  name: Policy neu laden
+  description: >-
+    Lädt smart_homeassistant_policy.yaml neu, ohne Home Assistant neu starten
+    zu müssen (z.B. nach manueller Bearbeitung der Whitelist).
+
+refresh_documentation:
+  name: Home-Assistant-Dokumentation aktualisieren
+  description: >-
+    Lädt die in der Policy konfigurierten offiziellen Home-Assistant-Dokumentationsseiten
+    neu herunter, speichert sie als Offline-Version und verwendet sie sofort für
+    Dokumentationsantworten im Chat und per Spracheingabe.
+
+add_model_provider:
+  name: KI-Modell hinzufügen
+  description: >-
+    Legt eine neue KI-Modell-Anbindung an (Ollama, OpenAI-kompatibel, Anthropic oder
+    Gemini). Wird vom "Modell wechseln"-Dialog im Chat-Fenster aufgerufen.
+  fields:
+    name:
+      name: Name
+      description: Anzeigename, z.B. "Lokales Ollama" oder "OpenAI GPT-4o".
+      required: true
+      example: Lokales Ollama
+      selector:
+        text:
+    type:
+      name: Typ
+      description: Welches API-Format der Provider spricht.
+      required: true
+      example: ollama
+      selector:
+        select:
+          options:
+            - ollama
+            - openai
+            - anthropic
+            - gemini
+    model:
+      name: Modell
+      description: Modell-Bezeichner beim Provider, z.B. "llama3.1:8b" oder "gpt-4o".
+      required: true
+      example: llama3.1:8b
+      selector:
+        text:
+    url:
+      name: URL
+      description: >-
+        Server-Adresse. Bei "ollama" die lokale Ollama-Instanz, bei den Cloud-Typen nur
+        nötig, wenn ein abweichender/kompatibler Endpoint (z.B. OpenRouter) genutzt wird -
+        sonst leer lassen für den offiziellen Endpoint des Providers.
+      required: false
+      example: http://homeassistant.local:11434
+      selector:
+        text:
+    api_key:
+      name: API-Key
+      description: Bei "openai"/"anthropic"/"gemini" erforderlich, bei "ollama" nicht.
+      required: false
+      selector:
+        text:
+          type: password
+    make_default:
+      name: Als Standard setzen
+      description: Wird für neue Gespräche ohne eigene Modellwahl verwendet.
+      required: false
+      default: false
+      selector:
+        boolean:
+
+update_model_provider:
+  name: KI-Modell ändern
+  description: >-
+    Ändert eine bestehende KI-Modell-Anbindung. Nur die übergebenen Felder werden
+    überschrieben; ein leer gelassener API-Key behält den gespeicherten bei. Die
+    Provider-ID bleibt erhalten, laufende Gespräche behalten ihre Modellwahl.
+  fields:
+    id:
+      name: Provider-ID
+      description: ID des zu aendernden Providers (siehe list_model_providers).
+      required: true
+      selector:
+        text:
+    name:
+      name: Name
+      description: Neuer Anzeigename.
+      required: false
+      example: OpenRouter Gemma
+      selector:
+        text:
+    type:
+      name: Typ
+      description: Welches API-Format der Provider spricht.
+      required: false
+      example: openai
+      selector:
+        select:
+          options:
+            - ollama
+            - openai
+            - anthropic
+            - gemini
+    model:
+      name: Modell
+      description: >-
+        Modell-Bezeichner beim Provider. Bei OpenRouter immer inklusive Anbieter-Praefix,
+        z.B. "google/gemma-4-31b-it:free".
+      required: false
+      example: google/gemma-4-31b-it:free
+      selector:
+        text:
+    url:
+      name: URL
+      description: >-
+        Basis-URL des Endpoints, NICHT die vollständige Adresse mit "/chat/completions" -
+        bei OpenRouter also "https://openrouter.ai/api/v1".
+      required: false
+      example: https://openrouter.ai/api/v1
+      selector:
+        text:
+    api_key:
+      name: API-Key
+      description: Nur angeben, wenn der Schlüssel ersetzt werden soll. Leer = unverändert.
+      required: false
+      selector:
+        text:
+          type: password
+    make_default:
+      name: Als Standard setzen
+      description: Wird für neue Gespräche ohne eigene Modellwahl verwendet.
+      required: false
+      selector:
+        boolean:
+
+remove_model_provider:
+  name: KI-Modell entfernen
+  description: Entfernt eine zuvor angelegte KI-Modell-Anbindung.
+  fields:
+    id:
+      name: Provider-ID
+      description: ID des zu entfernenden Providers (siehe list_model_providers).
+      required: true
+      selector:
+        text:
+
+list_model_providers:
+  name: KI-Modelle auflisten
+  description: >-
+    Gibt alle konfigurierten KI-Modell-Anbindungen zurück (ohne API-Keys). Wird vom
+    "Modell wechseln"-Dialog im Chat-Fenster aufgerufen.
+
+set_conversation_model:
+  name: Modell für Gespräch festlegen
+  description: >-
+    Legt fest, welches KI-Modell ein bestimmtes (laufendes oder kuenftiges) Chat-Gespräch
+    verwendet - andere Gespräche bleiben unverändert.
+  fields:
+    conversation_id:
+      name: Konversations-ID
+      description: ID des Gespraechs im Chat-Fenster.
+      required: true
+      selector:
+        text:
+    provider_id:
+      name: Provider-ID
+      description: ID des zu verwendenden Providers (siehe list_model_providers).
+      required: true
+      selector:
+        text:

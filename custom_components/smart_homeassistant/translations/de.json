@@ -1,0 +1,35 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Smart Homeassistant einrichten",
+        "data": {
+          "ollama_url": "Ollama-URL",
+          "ollama_model": "Ollama-Modell",
+          "confirmation_ttl_minutes": "Bestätigungs-TTL (Minuten)"
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Es kann nur eine Instanz von Smart Homeassistant eingerichtet werden."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Smart Homeassistant konfigurieren",
+        "data": {
+          "ollama_url": "Ollama-URL",
+          "ollama_model": "Ollama-Modell",
+          "confirmation_ttl_minutes": "Bestätigungs-TTL (Minuten)"
+        }
+      }
+    }
+  },
+  "services": {
+    "reload_policy": {
+      "name": "Policy neu laden",
+      "description": "Lädt smart_homeassistant_policy.yaml neu, ohne Home Assistant neu starten zu müssen."
+    }
+  }
+}

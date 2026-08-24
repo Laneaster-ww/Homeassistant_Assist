@@ -1,0 +1,13 @@
+{
+  "domain": "smart_homeassistant",
+  "name": "Smart Homeassistant",
+  "codeowners": ["@janfr"],
+  "config_flow": true,
+  "dependencies": ["conversation"],
+  "documentation": "https://www.home-assistant.io/docs/",
+  "integration_type": "service",
+  "iot_class": "local_polling",
+  "loggers": ["custom_components.smart_homeassistant"],
+  "requirements": [],
+  "version": "0.1.0"
+}

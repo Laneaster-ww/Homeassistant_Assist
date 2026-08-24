@@ -1,0 +1,179 @@
+# Sicherheits-Policy fuer den Action Broker.
+#
+# Nur hier eingetragene Scripts/Services darf die KI ausfuehren, und auch nur
+# auf die hier freigegebenen Ziel-Entities. Alles andere lehnt der Broker ab,
+# unabhaengig davon, was die KI vorschlaegt.
+#
+# Passe diese Datei an deine tatsaechlichen Home-Assistant-Entities an.
+
+scripts:
+  script.gute_nacht:
+    confirmation_required: true
+  script.filmabend:
+    confirmation_required: true
+  script.haus_verlassen:
+    confirmation_required: true
+  script.gaestemodus:
+    confirmation_required: false
+  script.alle_lichter_aus:
+    confirmation_required: false
+  script.morgenroutine:
+    confirmation_required: true
+
+services:
+  light.turn_on:
+    confirmation_required: false
+    allowed_entities:
+      - light.wohnzimmer_aqara_lampe_wohnzimmer
+      - light.schlafzimmer_aqara_lampe_schlafzimmer
+      - light.kuche_aqara_lampe_kuche
+      - light.flur_aqara_lampe_flur
+      - light.badezimmer_aqara_lampe_badezimmer
+  light.turn_off:
+    confirmation_required: false
+    allowed_entities:
+      - light.wohnzimmer_aqara_lampe_wohnzimmer
+      - light.schlafzimmer_aqara_lampe_schlafzimmer
+      - light.kuche_aqara_lampe_kuche
+      - light.flur_aqara_lampe_flur
+      - light.badezimmer_aqara_lampe_badezimmer
+  cover.open_cover:
+    confirmation_required: false
+    allowed_entities:
+      - cover.wohnzimmer_aqara_jalousie_wohnzimmer
+      - cover.schlafzimmer_aqara_jalousie_schlafzimmer
+      - cover.kuche_aqara_jalousie_kuche
+  cover.close_cover:
+    confirmation_required: false
+    allowed_entities:
+      - cover.wohnzimmer_aqara_jalousie_wohnzimmer
+      - cover.schlafzimmer_aqara_jalousie_schlafzimmer
+      - cover.kuche_aqara_jalousie_kuche
+  cover.set_cover_position:
+    confirmation_required: false
+    allowed_entities:
+      - cover.wohnzimmer_aqara_jalousie_wohnzimmer
+      - cover.schlafzimmer_aqara_jalousie_schlafzimmer
+      - cover.kuche_aqara_jalousie_kuche
+  lock.lock:
+    confirmation_required: false
+    allowed_entities:
+      - lock.flur_aqara_turschloss_eingang
+  lock.unlock:
+    # Aufsperren ist sicherheitsrelevant - immer Bestaetigung verlangen,
+    # unabhaengig vom sonstigen Confirmation-TTL-Verhalten.
+    confirmation_required: true
+    allowed_entities:
+      - lock.flur_aqara_turschloss_eingang
+  # Sonos-Lautsprecher (siehe configuration.yaml, Abschnitt "sonos"). Reine
+  # Wiedergabesteuerung ist jederzeit ohne Rueckfrage rueckgaengig zu machen,
+  # deshalb wie bei Licht/Rollo confirmation_required: false.
+  # Kein turn_on/turn_off: Sonos-Lautsprecher unterstuetzen in Home Assistant
+  # kein echtes Ein-/Ausschalten (SonosMediaPlayerEntity hat kein TURN_ON/TURN_OFF-
+  # Feature, siehe homeassistant/components/sonos/media_player.py) - sie sind
+  # technisch immer im Standby und "wachen" beim Abspielen automatisch auf.
+  # media_player.media_stop ist das naechstliegende Aequivalent zu "ausschalten".
+  media_player.volume_set:
+    confirmation_required: false
+    allowed_entities:
+      - media_player.wohnzimmer_wohnzimmer
+      - media_player.kuche_kuche
+      - media_player.hauptschlafzimmer_hauptschlafzimmer
+      - media_player.esszimmer_esszimmer
+  media_player.media_play:
+    confirmation_required: false
+    allowed_entities:
+      - media_player.wohnzimmer_wohnzimmer
+      - media_player.kuche_kuche
+      - media_player.hauptschlafzimmer_hauptschlafzimmer
+      - media_player.esszimmer_esszimmer
+  media_player.media_pause:
+    confirmation_required: false
+    allowed_entities:
+      - media_player.wohnzimmer_wohnzimmer
+      - media_player.kuche_kuche
+      - media_player.hauptschlafzimmer_hauptschlafzimmer
+      - media_player.esszimmer_esszimmer
+  media_player.media_play_pause:
+    confirmation_required: false
+    allowed_entities:
+      - media_player.wohnzimmer_wohnzimmer
+      - media_player.kuche_kuche
+      - media_player.hauptschlafzimmer_hauptschlafzimmer
+      - media_player.esszimmer_esszimmer
+  media_player.media_stop:
+    confirmation_required: false
+    allowed_entities:
+      - media_player.wohnzimmer_wohnzimmer
+      - media_player.kuche_kuche
+      - media_player.hauptschlafzimmer_hauptschlafzimmer
+      - media_player.esszimmer_esszimmer
+  media_player.media_next_track:
+    confirmation_required: false
+    allowed_entities:
+      - media_player.wohnzimmer_wohnzimmer
+      - media_player.kuche_kuche
+      - media_player.hauptschlafzimmer_hauptschlafzimmer
+      - media_player.esszimmer_esszimmer
+  media_player.media_previous_track:
+    confirmation_required: false
+    allowed_entities:
+      - media_player.wohnzimmer_wohnzimmer
+      - media_player.kuche_kuche
+      - media_player.hauptschlafzimmer_hauptschlafzimmer
+      - media_player.esszimmer_esszimmer
+  # play_media: media_content_type "url" ist bewusst NICHT erlaubt (siehe
+  # broker._validate_play_media) - nur kuratierte Inhalte (Favoriten, Playlists,
+  # TuneIn-Sender), keine beliebigen Internet-Stream-URLs auf Zuruf.
+  media_player.play_media:
+    confirmation_required: false
+    allowed_entities:
+      - media_player.wohnzimmer_wohnzimmer
+      - media_player.kuche_kuche
+      - media_player.hauptschlafzimmer_hauptschlafzimmer
+      - media_player.esszimmer_esszimmer
+  media_player.select_source:
+    confirmation_required: false
+    allowed_entities:
+      - media_player.wohnzimmer_wohnzimmer
+      - media_player.kuche_kuche
+      - media_player.hauptschlafzimmer_hauptschlafzimmer
+      - media_player.esszimmer_esszimmer
+
+# Policy fuer per KI neu erstellte Automationen (Feature "Automatisierungen aus
+# natuerlicher Sprache erstellen"). Nur Automationen, die ausschliesslich diese
+# Entities referenzieren, werden nach Bestaetigung tatsaechlich aktiviert.
+automations:
+  create:
+    confirmation_required: true
+    allowed_entities:
+      - light.wohnzimmer_aqara_lampe_wohnzimmer
+      - light.schlafzimmer_aqara_lampe_schlafzimmer
+      - light.kuche_aqara_lampe_kuche
+      - light.flur_aqara_lampe_flur
+      - light.badezimmer_aqara_lampe_badezimmer
+      - cover.wohnzimmer_aqara_jalousie_wohnzimmer
+      - cover.schlafzimmer_aqara_jalousie_schlafzimmer
+      - cover.kuche_aqara_jalousie_kuche
+      - lock.flur_aqara_turschloss_eingang
+      - sensor.garten_solaredge_wechselrichter_leistung
+      - sensor.garten_solaredge_wechselrichter_tagesertrag
+      - sensor.garten_solaredge_wechselrichter_gesamtertrag
+      - media_player.wohnzimmer_wohnzimmer
+      - media_player.kuche_kuche
+      - media_player.hauptschlafzimmer_hauptschlafzimmer
+      - media_player.esszimmer_esszimmer
+
+# Dokumentationsmodus fuer Fragen zu Home-Assistant-Funktionen. Solche Antworten
+# duerfen ausschliesslich aus der gespeicherten Offline-Dokumentation oder den
+# hier gelisteten offiziellen Home-Assistant-Quellen abgeleitet werden.
+documentation:
+  enabled: true
+  strict_docs_only: true
+  offline_path: custom_components/smart_homeassistant/homeassistant_docs_offline.md
+  source_urls:
+    - https://www.home-assistant.io/docs/
+    - https://www.home-assistant.io/integrations/conversation/
+    - https://developers.home-assistant.io/docs/intent_conversation_api/
+    - https://developers.home-assistant.io/docs/voice/overview/
+    - https://developers.home-assistant.io/docs/creating_integration_manifest/

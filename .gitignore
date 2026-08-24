@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+
+# Home Assistant: Laufzeit- und Geheimnisdaten gehoeren NICHT ins Repo
+.storage/
+secrets.yaml
+*.db
+*.db-shm
+*.db-wal
+home-assistant.log*
+home-assistant_v2.*
+deps/
+tts/
+backups/
+.HA_VERSION
+
+# Wird von der Integration beim ersten Start erzeugt und ist installationsspezifisch.
+# Nur im Wurzelverzeichnis ignorieren - das Beispiel unter examples/ soll mit ins Repo.
+/smart_homeassistant_policy.yaml
+smart_homeassistant_dashboards/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,34 @@
+# Home Assistant, wie diese Integration entwickelt und getestet wurde.
+#
+# Das Konfigurationsverzeichnis wird bewusst NICHT mit versioniert: dort liegen
+# secrets.yaml, die Datenbank und .storage/ mit den API-Keys der Modell-Anbindungen
+# im Klartext. Nur ./custom_components/smart_homeassistant wird eingehaengt.
+
+services:
+  homeassistant:
+    container_name: homeassistant
+    image: ghcr.io/home-assistant/home-assistant:stable   # getestet mit 2026.6.4
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Vienna
+    ports:
+      - "8123:8123"
+    volumes:
+      # Eigenes, nicht versioniertes Konfigurationsverzeichnis
+      - ./config:/config
+      # Die Integration aus diesem Repo direkt hineinreichen
+      - ./custom_components/smart_homeassistant:/config/custom_components/smart_homeassistant:ro
+
+  # Optional: lokales Modell. Ohne diesen Dienst laesst sich stattdessen ein
+  # Cloud-Provider (OpenAI-kompatibel, Anthropic, Gemini) im Chat-Fenster hinterlegen.
+  ollama:
+    container_name: smartha-ollama
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+
+volumes:
+  ollama-models:
