@@ -1,0 +1,1030 @@
+\documentclass[
+  11pt,
+  a4paper,
+  oneside,
+  parskip=half
+]{scrreprt}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[ngerman]{babel}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[
+  left=25mm,
+  right=25mm,
+  top=25mm,
+  bottom=27mm,
+  headheight=15pt
+]{geometry}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{pdflscape}
+\usepackage{hyperref}
+\usepackage{bookmark}
+\usepackage{lastpage}
+
+\definecolor{SmartDark}{HTML}{0E1319}
+\definecolor{SmartPanel}{HTML}{172029}
+\definecolor{SmartBlue}{HTML}{2FA8E8}
+\definecolor{SmartLightBlue}{HTML}{CBEFFC}
+\definecolor{SmartAmber}{HTML}{E0A03C}
+\definecolor{SmartPurple}{HTML}{9D8DFB}
+\definecolor{SmartGray}{HTML}{5F7688}
+\definecolor{SmartLightGray}{HTML}{E8EEF5}
+\definecolor{CodeBackground}{HTML}{F4F7F9}
+\definecolor{CodeBorder}{HTML}{D8E1E8}
+\definecolor{CodeComment}{HTML}{607D6A}
+\definecolor{CodeKeyword}{HTML}{7556B8}
+\definecolor{CodeString}{HTML}{9A5D21}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=SmartBlue,
+  urlcolor=SmartBlue,
+  citecolor=SmartBlue,
+  pdftitle={Smart Homeassistant -- Technische Dokumentation},
+  pdfauthor={Laneaster-ww},
+  pdfsubject={Home-Assistant-Integration mit kontrollierter KI-Aktionsausführung},
+  pdfkeywords={Home Assistant, KI, Conversation Agent, Policy, Ollama}
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\textcolor{SmartGray}{Smart Homeassistant}}
+\fancyhead[R]{\textcolor{SmartGray}{Technische Dokumentation}}
+\fancyfoot[L]{\textcolor{SmartGray}{Version 0.1.0}}
+\fancyfoot[R]{\textcolor{SmartGray}{Seite \thepage\ von \pageref{LastPage}}}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\titleformat{\chapter}
+  {\normalfont\huge\bfseries\color{SmartDark}}
+  {\textcolor{SmartBlue}{\thechapter}}
+  {0.8em}
+  {}
+
+\titleformat{\section}
+  {\normalfont\Large\bfseries\color{SmartDark}}
+  {\textcolor{SmartBlue}{\thesection}}
+  {0.7em}
+  {}
+
+\titleformat{\subsection}
+  {\normalfont\large\bfseries\color{SmartPanel}}
+  {\textcolor{SmartBlue}{\thesubsection}}
+  {0.6em}
+  {}
+
+\setlist[itemize]{
+  leftmargin=1.6em,
+  itemsep=0.25em,
+  topsep=0.4em
+}
+\setlist[enumerate]{
+  leftmargin=1.8em,
+  itemsep=0.25em,
+  topsep=0.4em
+}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\lstdefinelanguage{yaml}{
+  keywords={true,false,null},
+  keywordstyle=\color{CodeKeyword}\bfseries,
+  basicstyle=\ttfamily\small,
+  sensitive=false,
+  comment=[l]{\#},
+  commentstyle=\color{CodeComment}\itshape,
+  stringstyle=\color{CodeString},
+  morestring=[b]',
+  morestring=[b]"
+}
+
+\lstdefinestyle{smartcode}{
+  backgroundcolor=\color{CodeBackground},
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  breakatwhitespace=false,
+  columns=fullflexible,
+  frame=single,
+  rulecolor=\color{CodeBorder},
+  framesep=7pt,
+  keepspaces=true,
+  showstringspaces=false,
+  tabsize=2,
+  xleftmargin=0.5em,
+  xrightmargin=0.5em
+}
+
+\lstset{style=smartcode}
+
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\projecturl}{https://github.com/Laneaster-ww/Homeassistant\_Assist}
+
+\newenvironment{smartnote}[1]
+{%
+  \begin{quote}
+    \color{SmartPanel}
+    \textbf{\textcolor{SmartBlue}{#1}}\par\smallskip
+}
+{%
+  \end{quote}
+}
+
+\newenvironment{smartwarning}[1]
+{%
+  \begin{quote}
+    \color{SmartDark}
+    \textbf{\textcolor{SmartAmber!80!black}{#1}}\par\smallskip
+}
+{%
+  \end{quote}
+}
+
+\begin{document}
+
+\begin{titlepage}
+  \pagecolor{SmartDark}
+  \color{SmartLightGray}
+
+  \vspace*{18mm}
+
+  {\Large\ttfamily\textcolor{SmartBlue}{HOME-ASSISTANT-INTEGRATION}\par}
+  \vspace{9mm}
+
+  {\fontsize{34}{40}\selectfont\bfseries Smart Homeassistant\par}
+  \vspace{5mm}
+
+  {\Large
+    Kontrollierter KI-Assistent für Chat, Assist-Pipelines,
+    Automationen und Dashboards
+  \par}
+
+  \vspace{18mm}
+
+  \noindent
+  \colorbox{SmartPanel}{%
+    \begin{minipage}{0.89\textwidth}
+      \color{SmartLightGray}
+      \vspace{5mm}
+      \textbf{\textcolor{SmartBlue}{TECHNISCHE DOKUMENTATION}}\par
+      \vspace{3mm}
+      Architektur, Installation, Konfiguration, Sicherheitsmodell,
+      Betrieb und Entwicklung
+      \vspace{5mm}
+    \end{minipage}
+  }
+
+  \vfill
+
+  \begin{tabular}{@{}ll@{}}
+    \textcolor{SmartGray}{Projektversion} & 0.1.0 \\[2mm]
+    \textcolor{SmartGray}{Dokumentstand} & 31. August 2026 \\[2mm]
+    \textcolor{SmartGray}{Repository} & \href{\projecturl}{github.com/Laneaster-ww/Homeassistant\_Assist} \\[2mm]
+    \textcolor{SmartGray}{Zielplattform} & Home Assistant, getestet mit 2026.6.4
+  \end{tabular}
+
+  \vspace{12mm}
+
+  {\small\textcolor{SmartGray}{
+    Das Modell schlägt vor. Die lokale Policy entscheidet.
+  }\par}
+\end{titlepage}
+
+\nopagecolor
+\color{SmartDark}
+
+\chapter*{Dokumentinformationen}
+\addcontentsline{toc}{chapter}{Dokumentinformationen}
+
+\begin{tabularx}{\textwidth}{@{}L{38mm}Y@{}}
+  \toprule
+  \textbf{Merkmal} & \textbf{Wert} \\
+  \midrule
+  Dokumenttyp & Technische Projekt- und Betriebsdokumentation \\
+  Projekt & Smart Homeassistant \\
+  Version & 0.1.0 \\
+  Status & Frühe Entwicklungsphase vor Version 1.0 \\
+  Sprache & Deutsch \\
+  Quellformat & \LaTeX \\
+  Zielgruppe & Betreiber, Entwickler, Reviewer und technisch interessierte Anwender \\
+  \bottomrule
+\end{tabularx}
+
+\section*{Zweck}
+
+Dieses Dokument beschreibt die Funktionsweise und den sicheren Betrieb der
+Home-Assistant-Integration Smart Homeassistant. Es dient als technische Referenz für
+Installation, Konfiguration, Modellanbindung, Policy-Pflege, Fehlerdiagnose und
+Weiterentwicklung.
+
+\begin{smartwarning}{Lizenzstatus}
+Das Repository enthält zum Zeitpunkt dieses Dokumentstands keine Lizenzdatei. Dieses
+Dokument trifft keine darüber hinausgehende Aussage zu Nutzungs- oder
+Weiterverteilungsrechten.
+\end{smartwarning}
+
+\tableofcontents
+\clearpage
+
+\chapter{Einleitung}
+
+\section{Projektidee}
+
+Smart Homeassistant erweitert Home Assistant um einen Conversation Agent, der natürliche
+Sprache in Antworten oder kontrollierte Handlungsvorschläge überführt. Unterstützt werden
+Textanfragen aus einem Chatfenster sowie bereits transkribierte Eingaben aus einer
+Home-Assistant-Assist-Pipeline.
+
+Das Sprachmodell ist nicht Teil der vertrauenswürdigen Ausführungsebene. Es darf lediglich
+eine strukturierte Antwort erzeugen. Ob ein Vorschlag zulässig ist, entscheidet lokaler
+Python-Code anhand einer expliziten Policy und zusätzlicher Schema- und
+Plausibilitätsprüfungen.
+
+\section{Ziele}
+
+Die Integration verfolgt folgende Ziele:
+
+\begin{itemize}
+  \item verständliche Bedienung von Home Assistant mit natürlicher Sprache,
+  \item Unterstützung lokaler und externer Modellanbieter,
+  \item minimale Rechte durch eine Whitelist,
+  \item transparente Bestätigung eingreifender oder dauerhafter Änderungen,
+  \item deterministische Prüfung jeder ausführbaren Modellausgabe,
+  \item lokale Dokumentationsantworten aus kontrollierten Quellen,
+  \item nachvollziehbare Trennung von Vorschlag, Prüfung und Ausführung.
+\end{itemize}
+
+\section{Abgrenzung}
+
+Smart Homeassistant ist keine allgemeine autonome Agentenplattform. Insbesondere gilt:
+
+\begin{itemize}
+  \item Das Modell kann keine beliebigen Home-Assistant-Dienste aufrufen.
+  \item Das Modell erhält keinen direkten Dateisystemzugriff.
+  \item Dashboards werden nicht als freies Kartenlayout durch das Modell erzeugt.
+  \item Dokumentationsantworten dürfen im strikten Modus nur auf dem lokalen
+        Dokumentationsschnappschuss und konfigurierten Quellen beruhen.
+  \item Die Integration ersetzt keine Absicherung des Home-Assistant-Hosts.
+\end{itemize}
+
+\chapter{Funktionsumfang}
+
+\begin{longtable}{@{}L{37mm}L{105mm}@{}}
+  \toprule
+  \textbf{Bereich} & \textbf{Beschreibung} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{Bereich} & \textbf{Beschreibung} \\
+  \midrule
+  \endhead
+  Conversation Agent &
+    Verwaltung von Gesprächs-ID, Verlauf, Sprache, Provider-Auswahl und offenen
+    Rückfragen. \\
+  Gerätesteuerung &
+    Ausführung freigegebener Scripts und Services auf explizit erlaubten Entities. \\
+  Automationen &
+    Erzeugung eines YAML-Entwurfs, lokale Validierung und Aktivierung nach Bestätigung. \\
+  Dashboards &
+    Auswahl vorhandener Bereiche und Erzeugung von Views mit Home Assistants
+    Bereichsstrategie. \\
+  Dashboard-Löschung &
+    Kontrollierte Löschung von Dashboard-Einträgen mit dem reservierten
+    \code{ki-}-URL-Präfix. \\
+  Dokumentationsmodus &
+    Suche im lokalen Dokumentationsschnappschuss und reine Textantwort ohne
+    Aktionsausführung. \\
+  Modellanbieter &
+    Ollama, OpenAI-kompatible APIs, Anthropic und Google Gemini. \\
+  Provider-Verwaltung &
+    Mehrere gespeicherte Anbieter, Standardanbieter und Auswahl pro Gespräch. \\
+  Internationalisierung &
+    Sichtbare, von der Integration formulierte Texte in Deutsch und Englisch. \\
+  \bottomrule
+\end{longtable}
+
+\chapter{Systemarchitektur}
+
+\section{Gesamtübersicht}
+
+Die Architektur trennt fünf Verantwortungsbereiche:
+
+\begin{enumerate}
+  \item Eingabe über Chat oder Assist-Pipeline,
+  \item Gesprächsverwaltung und Kontextaufbau,
+  \item Modellzugriff über einen ausgewählten Client,
+  \item deterministische Sicherheits- und Artefaktprüfung,
+  \item Ausgabe als Text oder kontrollierte Änderung in Home Assistant.
+\end{enumerate}
+
+\begin{landscape}
+  \thispagestyle{plain}
+  \begin{figure}[p]
+    \centering
+    \includegraphics[width=0.96\linewidth]{../assets/architecture.png}
+    \caption{Komponenten und Datenflüsse von Smart Homeassistant}
+    \label{fig:architecture}
+  \end{figure}
+\end{landscape}
+
+\section{Hauptfluss}
+
+\begin{enumerate}
+  \item Home Assistant übergibt eine Texteingabe an den Conversation Agent.
+  \item Der Agent lädt die aktuelle Policy und den für die Sitzung gewählten Provider.
+  \item Deterministische Vorfilter erkennen Antworten auf offene Bestätigungen,
+        Dokumentationsfragen und bestimmte Statusfragen.
+  \item Für eine normale Modellanfrage wird ein begrenzter Kontext aufgebaut.
+  \item Der Provider-Adapter sendet die Anfrage an genau einen Modellendpunkt.
+  \item Die Modellausgabe wird gegen das erwartete Schema validiert.
+  \item Der Antworttyp bestimmt, ob Text zurückgegeben, eine Rückfrage gestellt oder ein
+        lokaler Prüfpfad gestartet wird.
+\end{enumerate}
+
+\section{Antworttypen}
+
+Das zentrale Modellausgabeformat \code{LLMOutput} unterscheidet:
+
+\begin{table}[htbp]
+  \centering
+  \begin{tabularx}{\textwidth}{@{}L{42mm}Y@{}}
+    \toprule
+    \textbf{Typ} & \textbf{Verarbeitung} \\
+    \midrule
+    \code{chat} & Reine Textantwort ohne Ausführung. \\
+    \code{explanation} & Erklärung vorhandener Zustände oder Konfigurationen. \\
+    \code{clarification} & Rückfrage; das Gespräch bleibt geöffnet. \\
+    \code{action\_plan} & Prüfung durch Policy und Action Broker. \\
+    \code{automation\_draft} & Prüfung und Vorschau eines Automation-YAML-Entwurfs. \\
+    \code{dashboard\_draft} & Auflösung bekannter Bereiche und Erzeugung nach Bestätigung. \\
+    \code{dashboard\_delete} & Kontrollierte Löschung eines Dashboard-Eintrags mit
+    reserviertem \code{ki-}-URL-Präfix. \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Arten strukturierter Modellausgaben}
+\end{table}
+
+Dokumentationsantworten nutzen einen separaten Client-Pfad und werden nicht als
+\code{LLMOutput} behandelt.
+
+\section{Kontextaufbau}
+
+Der allgemeine Modellkontext kann folgende Informationen enthalten:
+
+\begin{itemize}
+  \item relevante aktuelle Entity-Zustände,
+  \item bestehende Automationen,
+  \item verfügbare Home-Assistant-Bereiche,
+  \item in der Policy freigegebene Scripts, Services und Entities,
+  \item löschbare Dashboard-Einträge mit dem reservierten \code{ki-}-URL-Präfix,
+  \item den begrenzten Gesprächsverlauf.
+\end{itemize}
+
+Ein Relevanzfilter reduziert umfangreiche Entity- und Freigabelisten anhand der aktuellen
+Anfrage. Die Prüfung bei der späteren Ausführung verwendet dennoch die vollständige
+Policy.
+
+\chapter{Installation}
+
+\section{Voraussetzungen}
+
+Für den mitgelieferten Entwicklungs- und Testbetrieb werden benötigt:
+
+\begin{itemize}
+  \item Docker Engine oder Docker Desktop,
+  \item Docker Compose,
+  \item Zugriff auf Port \code{8123},
+  \item optional Zugriff auf Port \code{11434} für Ollama,
+  \item alternativ Zugangsdaten für einen unterstützten externen Modellanbieter.
+\end{itemize}
+
+\section{Installation mit Docker Compose}
+
+\begin{lstlisting}[language=bash,caption={Repository klonen und Dienste starten}]
+git clone https://github.com/Laneaster-ww/Homeassistant_Assist.git
+cd Homeassistant_Assist
+docker compose up -d
+\end{lstlisting}
+
+Danach ist Home Assistant unter
+\href{http://localhost:8123}{http://localhost:8123} erreichbar.
+
+Die Compose-Konfiguration bindet folgende Ressourcen ein:
+
+\begin{table}[htbp]
+  \centering
+  \begin{tabularx}{\textwidth}{@{}L{49mm}L{57mm}Y@{}}
+    \toprule
+    \textbf{Host} & \textbf{Container} & \textbf{Zweck} \\
+    \midrule
+    \code{./config} & \code{/config} & Home-Assistant-Laufzeitdaten und Konfiguration \\
+    \code{./custom\_components/smart\_homeassistant} &
+    \code{/config/custom\_components/smart\_homeassistant} &
+    Integration direkt aus dem Repository \\
+    benanntes Docker-Volume & \code{/root/.ollama} & lokal gespeicherte Ollama-Modelle \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Persistente und eingebundene Ressourcen}
+\end{table}
+
+\begin{smartwarning}{Vertrauliche Laufzeitdaten}
+Das Verzeichnis \code{config/} kann Secrets, API-Keys, Datenbanken und interne
+Home-Assistant-Daten enthalten. Es ist durch \code{.gitignore} vom Repository
+ausgeschlossen und darf nicht veröffentlicht werden.
+\end{smartwarning}
+
+\section{Betriebsbefehle}
+
+\begin{lstlisting}[language=bash,caption={Häufige Docker-Compose-Befehle}]
+# Status
+docker compose ps
+
+# Home Assistant neu starten
+docker compose restart homeassistant
+
+# Protokolle verfolgen
+docker compose logs -f homeassistant
+
+# Dienste stoppen
+docker compose down
+\end{lstlisting}
+
+\section{Alternative Host-Ports}
+
+Sind die Standardports belegt, kann eine lokale und nicht versionierte
+\code{docker-compose.override.yml} verwendet werden:
+
+\begin{lstlisting}[language=yaml,caption={Beispiel für alternative Host-Ports}]
+services:
+  homeassistant:
+    container_name: smart-homeassistant-dev
+    ports: !override
+      - "18123:8123"
+
+  ollama:
+    container_name: smart-homeassistant-ollama-dev
+    ports: !override
+      - "11435:11434"
+\end{lstlisting}
+
+\section{Manuelle Installation}
+
+\begin{enumerate}
+  \item Den Ordner \code{custom\_components/smart\_homeassistant/} in das
+        Home-Assistant-Konfigurationsverzeichnis kopieren.
+  \item Home Assistant vollständig neu starten.
+  \item Unter \emph{Einstellungen $\rightarrow$ Geräte \& Dienste} eine neue Integration
+        hinzufügen.
+  \item \emph{Smart Homeassistant} auswählen und den Einrichtungsdialog abschließen.
+\end{enumerate}
+
+\begin{lstlisting}[caption={Erwartete Verzeichnisstruktur}]
+config/
+|-- configuration.yaml
+|-- smart_homeassistant_policy.yaml
+`-- custom_components/
+    `-- smart_homeassistant/
+        |-- __init__.py
+        |-- manifest.json
+        `-- ...
+\end{lstlisting}
+
+\chapter{Konfiguration}
+
+\section{Policy-Datei}
+
+Beim ersten Start erzeugt die Integration
+\code{smart\_homeassistant\_policy.yaml}. Die Datei ist die verbindliche
+Berechtigungsquelle für ausführbare Aktionen.
+
+\begin{lstlisting}[language=yaml,caption={Reduziertes Policy-Beispiel}]
+scripts:
+  script.gute_nacht:
+    confirmation_required: true
+
+services:
+  light.turn_on:
+    confirmation_required: false
+    allowed_entities:
+      - light.wohnzimmer
+
+  lock.unlock:
+    confirmation_required: true
+    allowed_entities:
+      - lock.haustuer
+
+automations:
+  create:
+    confirmation_required: true
+    allowed_entities:
+      - light.wohnzimmer
+      - sensor.solarleistung
+
+documentation:
+  enabled: true
+  strict_docs_only: true
+  offline_path: custom_components/smart_homeassistant/homeassistant_docs_offline.md
+\end{lstlisting}
+
+\begin{smartwarning}{Beispielwerte ersetzen}
+Die Entity-IDs im Repository sind Beispiele. Sie müssen durch vorhandene IDs der eigenen
+Home-Assistant-Instanz ersetzt werden.
+\end{smartwarning}
+
+\section{Policy neu laden}
+
+Nach einer Änderung kann die Policy ohne vollständigen Neustart über den Dienst
+\code{smart\_homeassistant.reload\_policy} neu eingelesen werden.
+
+\section{Modellanbieter}
+
+Unterstützte Provider-Typen:
+
+\begin{table}[htbp]
+  \centering
+  \begin{tabularx}{\textwidth}{@{}L{38mm}L{45mm}Y@{}}
+    \toprule
+    \textbf{Typ} & \textbf{Authentifizierung} & \textbf{Hinweis} \\
+    \midrule
+    Ollama & üblicherweise ohne API-Key & Lokaler Endpunkt, Standardadresse im
+    Docker-Betrieb über \code{host.docker.internal}. \\
+    OpenAI-kompatibel & API-Key abhängig vom Anbieter & Unterstützt unter anderem
+    OpenAI, OpenRouter, Mistral und LM Studio. \\
+    Anthropic & API-Key & Verwendet das Anthropic-Nachrichtenformat. \\
+    Google Gemini & API-Key & Verwendet die Gemini-API. \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Unterstützte Modellanbieter}
+\end{table}
+
+Provider können über das Chatfenster oder die registrierten Home-Assistant-Dienste
+verwaltet werden. Ein Provider kann als Standard markiert werden; zusätzlich ist eine
+Auswahl pro Gespräch möglich.
+
+\section{API-Key-Speicherung}
+
+Providerdaten werden mit Home Assistants Storage-Helfer in \code{.storage/} gespeichert.
+API-Keys liegen dort im Klartext. Sie werden bei einer Auflistung der Provider nicht an
+das Frontend zurückgegeben; sichtbar ist nur, ob ein Key vorhanden ist.
+
+\chapter{Home-Assistant-Dienste}
+
+\begin{longtable}{@{}L{61mm}L{82mm}@{}}
+  \toprule
+  \textbf{Dienst} & \textbf{Zweck} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{Dienst} & \textbf{Zweck} \\
+  \midrule
+  \endhead
+  \code{smart\_homeassistant.reload\_policy} &
+    Policy ohne Home-Assistant-Neustart neu einlesen. \\
+  \code{smart\_homeassistant.refresh\_documentation} &
+    Konfigurierte offizielle Quellen abrufen und den lokalen
+    Dokumentationsschnappschuss aktualisieren. \\
+  \code{smart\_homeassistant.add\_model\_provider} &
+    Modellanbieter hinzufügen. \\
+  \code{smart\_homeassistant.update\_model\_provider} &
+    Felder eines vorhandenen Modellanbieters aktualisieren. \\
+  \code{smart\_homeassistant.remove\_model\_provider} &
+    Modellanbieter entfernen. \\
+  \code{smart\_homeassistant.list\_model\_providers} &
+    Anbieter ohne gespeicherte API-Keys auflisten. \\
+  \code{smart\_homeassistant.set\_conversation\_model} &
+    Provider für ein bestimmtes Gespräch festlegen. \\
+  \bottomrule
+\end{longtable}
+
+\section{Provider hinzufügen}
+
+Wichtige Felder von \code{add\_model\_provider}:
+
+\begin{itemize}
+  \item \code{name}: frei wählbarer Anzeigename,
+  \item \code{type}: \code{ollama}, \code{openai}, \code{anthropic} oder \code{gemini},
+  \item \code{model}: Modellbezeichner beim Anbieter,
+  \item \code{url}: optionaler oder lokaler Basisendpunkt,
+  \item \code{api\_key}: falls der Provider eine Authentifizierung verlangt,
+  \item \code{make\_default}: Anbieter als Standard für neue Gespräche markieren.
+\end{itemize}
+
+\section{Provider aktualisieren}
+
+Beim Aktualisieren bleiben nicht angegebene Felder unverändert. Ein leer gelassener
+API-Key ersetzt den gespeicherten Key nicht. Die Provider-ID bleibt erhalten, damit
+laufende Gespräche ihre Auswahl behalten können.
+
+\chapter{Sicherheitsmodell}
+
+\section{Vertrauensgrenzen}
+
+\begin{table}[htbp]
+  \centering
+  \begin{tabularx}{\textwidth}{@{}L{45mm}Y@{}}
+    \toprule
+    \textbf{Bereich} & \textbf{Einordnung} \\
+    \midrule
+    Nutzereingabe & Nicht vertrauenswürdig; kann mehrdeutig oder manipulativ sein. \\
+    Modellausgabe & Nicht vertrauenswürdig; muss vollständig lokal validiert werden. \\
+    Policy & Vom Betreiber konfigurierte Berechtigungsquelle. \\
+    Broker und Artefaktprüfung & Deterministische Kontrollschicht. \\
+    Modellanbieter & Konfigurierter externer oder lokaler Dienst; keine
+    Ausführungsberechtigung in Home Assistant. \\
+    Home-Assistant-Service-Registry & Ausführungsebene nach erfolgreicher Prüfung. \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Vertrauensgrenzen}
+\end{table}
+
+\section{Service-Aktionspläne}
+
+Der Action Broker akzeptiert ausschließlich die Aktionen \code{run\_script} und
+\code{call\_service}. Für jeden Schritt werden Service, Entity-Ziel und
+Bestätigungspflicht geprüft.
+
+Nicht ausreichend prüfbare Ziele wie \code{device\_id}, \code{area\_id},
+\code{label\_id} und \code{floor\_id} werden abgelehnt, weil sie mehrere Entities
+erreichen können und eine Entity-Whitelist umgehen würden.
+
+\section{Entity-Auflösung}
+
+Ungenaue oder falsch formatierte Entity-IDs können nur dann korrigiert werden, wenn die
+Auflösung innerhalb der freigegebenen Ziele eindeutig ist. Eine solche Korrektur
+erzwingt eine Bestätigung. Die Rückfrage zeigt das tatsächlich aufgelöste Ziel.
+
+\section{Bestätigungen}
+
+\begin{itemize}
+  \item Service-Aktionspläne folgen der Bestätigungseinstellung ihrer Policy-Einträge.
+  \item Korrigierte Entity-Ziele benötigen immer eine Bestätigung.
+  \item Neue Automationen benötigen immer eine Bestätigung.
+  \item Dashboard-Erstellung und -Löschung benötigen immer eine Bestätigung.
+  \item Offene Rückfragen verfallen nach der konfigurierten Zeit.
+\end{itemize}
+
+\section{Erneute Prüfung}
+
+Ein bestätigter Aktionsplan wird direkt vor seiner Ausführung nochmals gegen die aktuelle
+Policy geprüft. Wird eine Freigabe zwischen Vorschlag und Bestätigung entfernt, findet
+keine Ausführung statt.
+
+\section{Automationsprüfung}
+
+Automation-Entwürfe werden vor einer Bestätigung gegen folgende Kriterien geprüft:
+
+\begin{itemize}
+  \item gültiges YAML,
+  \item akzeptiertes Home-Assistant-Automationsschema,
+  \item erlaubte Serviceaufrufe,
+  \item freigegebene Entity-Referenzen,
+  \item Ausschluss nicht prüfbarer Selektoren,
+  \item Ausschluss nicht erlaubter Templates,
+  \item Erkennung bekannter, versehentlich kopierter Prompt-Beispiele.
+\end{itemize}
+
+\section{Dashboardprüfung}
+
+Das Modell liefert nur Bereiche und einen Titel. Die eigentlichen Views erstellt Home
+Assistant über die Bereichsstrategie. Die Integration:
+
+\begin{itemize}
+  \item löst ausschließlich bekannte Bereiche auf,
+  \item erzeugt eindeutige URL-Pfade,
+  \item schreibt nur in das vorgesehene Dashboard-Verzeichnis,
+  \item validiert den Eintrag in \code{configuration.yaml} erneut,
+  \item rollt unvollständige Änderungen bei Fehlern zurück,
+  \item behandelt Dashboard-Einträge mit dem reservierten URL-Präfix \code{ki-} als
+        verwaltet und löschbar.
+\end{itemize}
+
+Das Präfix \code{ki-} sollte nicht für manuell angelegte Dashboards verwendet werden,
+weil solche Einträge sonst ebenfalls als Löschkandidaten erkannt werden.
+
+\section{Transport von API-Keys}
+
+Ist ein API-Key vorhanden, blockiert die Integration explizite
+\code{http://}-Endpunkte auf nicht lokalen Hosts. Lokale Endpunkte bilden eine
+Ausnahme, da sie typischerweise im eigenen Netz betrieben werden.
+
+\begin{smartnote}{Geltungsbereich}
+Diese Prüfung verhindert einen konkreten unverschlüsselten Versand an entfernte Hosts.
+Sie ist keine vollständige TLS-, Zertifikats- oder Vertrauensprüfung des Anbieters.
+\end{smartnote}
+
+\section{Nicht abgedeckte Risiken}
+
+Das Modell schützt nicht vor:
+
+\begin{itemize}
+  \item einem kompromittierten Home-Assistant-Host,
+  \item absichtlich zu weit gefassten Policy-Einträgen,
+  \item Schreibzugriff Dritter auf Policy, \code{.storage/} oder Integrationscode,
+  \item kompromittierten Modellanbietern,
+  \item Schwachstellen in Home Assistant oder aufgerufenen Integrationen.
+\end{itemize}
+
+\chapter{Dokumentationsmodus}
+
+\section{Ablauf}
+
+\begin{enumerate}
+  \item Ein lokaler Vorfilter erkennt eine Dokumentationsfrage.
+  \item Die Integration durchsucht den gespeicherten Offline-Schnappschuss.
+  \item Nur passende Textabschnitte und Quellen werden an den Provider übergeben.
+  \item Die Antwort wird als reine Textantwort an den Nutzer zurückgegeben.
+\end{enumerate}
+
+Wird kein passender Abschnitt gefunden, kann die Anfrage abhängig von der Erkennung als
+normale Conversation-Anfrage behandelt werden. Im strikten Modus darf der
+Dokumentationsclient keine unbelegte Antwort erzeugen.
+
+\section{Aktualisierung}
+
+Der Dienst \code{smart\_homeassistant.refresh\_documentation} lädt die in der Policy
+konfigurierten offiziellen URLs erneut und ersetzt den lokalen Schnappschuss.
+
+\begin{smartwarning}{Schreibbarer Integrationsordner}
+Beim Docker-Betrieb ist der Integrationsordner absichtlich schreibbar eingebunden, da der
+Aktualisierungsdienst die Offline-Dokumentation innerhalb dieses Ordners ersetzt.
+\end{smartwarning}
+
+\chapter{Betrieb und Wartung}
+
+\section{Protokolle}
+
+Im Docker-Betrieb:
+
+\begin{lstlisting}[language=bash]
+docker compose logs --tail 200 homeassistant
+docker compose logs -f homeassistant
+\end{lstlisting}
+
+In Home Assistant können Protokolle unter
+\emph{Einstellungen $\rightarrow$ System $\rightarrow$ Protokolle} eingesehen werden.
+Der relevante Logger lautet:
+
+\begin{lstlisting}
+custom_components.smart_homeassistant
+\end{lstlisting}
+
+\section{Aktualisierung}
+
+\begin{lstlisting}[language=bash]
+git pull
+docker compose restart homeassistant
+\end{lstlisting}
+
+Vor einer Aktualisierung sollten mindestens folgende Daten gesichert werden:
+
+\begin{itemize}
+  \item das Home-Assistant-Konfigurationsverzeichnis,
+  \item \code{smart\_homeassistant\_policy.yaml},
+  \item die Providerdaten unter \code{.storage/},
+  \item bestehende Automationen und generierte Dashboards.
+\end{itemize}
+
+\section{Fehlerdiagnose}
+
+\begin{longtable}{@{}L{54mm}L{89mm}@{}}
+  \toprule
+  \textbf{Symptom} & \textbf{Prüfung} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{Symptom} & \textbf{Prüfung} \\
+  \midrule
+  \endhead
+  Integration nicht auffindbar &
+    Verzeichnisstruktur prüfen und Home Assistant vollständig neu starten. \\
+  Aktion wird abgelehnt &
+    Service, Script und Entity in der Policy kontrollieren; anschließend Policy neu
+    laden. \\
+  Anbieter nicht erreichbar &
+    Basis-URL, Modellname, Netzwerkzugriff und Containerstatus prüfen. \\
+  Unsicherer Endpunkt &
+    Bei einem entfernten Host HTTPS verwenden oder den API-Key entfernen. \\
+  Automationsentwurf wird verworfen &
+    Protokoll auf Schema-, Service-, Entity- oder Templatefehler prüfen. \\
+  Dashboard erscheint nicht &
+    Von der Integration angebotenen Home-Assistant-Neustart durchführen. \\
+  Dokumentationsantwort fehlt &
+    Dokumentationsmodus und Offline-Pfad in der Policy kontrollieren; Schnappschuss
+    aktualisieren. \\
+  \bottomrule
+\end{longtable}
+
+\chapter{Entwicklerdokumentation}
+
+\section{Repository-Struktur}
+
+\begin{lstlisting}
+Homeassistant_Assist/
+|-- custom_components/
+|   `-- smart_homeassistant/
+|       |-- __init__.py
+|       |-- conversation.py
+|       |-- policy.py
+|       |-- broker.py
+|       |-- automations.py
+|       |-- dashboard.py
+|       |-- providers.py
+|       |-- llm_clients.py
+|       |-- ollama_client.py
+|       |-- docs_knowledge.py
+|       |-- config_flow.py
+|       |-- sensor.py
+|       |-- services.yaml
+|       |-- strings.json
+|       |-- frontend/
+|       `-- translations/
+|-- docs/
+|-- examples/
+|-- docker-compose.yml
+`-- README.md
+\end{lstlisting}
+
+\section{Modulverantwortung}
+
+\begin{longtable}{@{}L{48mm}L{95mm}@{}}
+  \toprule
+  \textbf{Modul} & \textbf{Verantwortung} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{Modul} & \textbf{Verantwortung} \\
+  \midrule
+  \endhead
+  \code{conversation.py} &
+    Gesprächsfluss, Sitzungen, Vorfilter, Rückfragen und Antwortverzweigung. \\
+  \code{config\_flow.py} &
+    Einrichtungs- und Optionen-Dialog, Einzelinstanz-Regel sowie Bestätigungs-TTL. \\
+  \code{policy.py} &
+    Laden, Validieren und Abfragen der lokalen Whitelist. \\
+  \code{broker.py} &
+    Prüfung und Ausführung einzelner Schritte eines Service-Aktionsplans. \\
+  \code{automations.py} &
+    Normalisierung, Schema- und Policyprüfung sowie Aktivierung von Automationen. \\
+  \code{dashboard.py} &
+    Auflösung von Bereichen, Erzeugung, Konfigurationsprüfung und Löschung von
+    Dashboards. \\
+  \code{providers.py} &
+    Persistenz, Standardauswahl und sichere Frontend-Repräsentation der Provider. \\
+  \code{llm\_clients.py} &
+    Clients für OpenAI-kompatible, Anthropic- und Gemini-Endpunkte. \\
+  \code{ollama\_client.py} &
+    Ollama-Zugriff, Antwortschema, Prompt und gemeinsame Hilfsfunktionen. \\
+  \code{docs\_knowledge.py} &
+    Klassifikation, Suche und Aktualisierung der Offline-Dokumentation. \\
+  \code{entity\_filter.py} &
+    Relevanzauswahl umfangreicher Entity- und Policy-Listen. \\
+  \code{sensor.py} &
+    Nicht pollender Sensor für die zuletzt verarbeitete Aktion und den kurzen
+    Aktionsverlauf. \\
+  \code{frontend.py} &
+    Registrierung der statischen Benutzeroberfläche. \\
+  \code{services.yaml} &
+    Metadaten und UI-Beschreibungen der registrierten Home-Assistant-Dienste. \\
+  \code{strings.json}, \code{translations/} &
+    Texte für Einrichtung, Optionen, Dienste und Übersetzungen. \\
+  \code{text\_format.py}, \code{i18n.py} &
+    Normalisierung von Modelltexten und sprachabhängige Laufzeitmeldungen. \\
+  \code{files.py}, \code{locks.py} &
+    Gemeinsame Dateioperationen und Synchronisation konkurrierender Änderungen. \\
+  \bottomrule
+\end{longtable}
+
+\section{Lokaler Entwicklungsablauf}
+
+\begin{lstlisting}[language=bash]
+# Dienste starten
+docker compose up -d
+
+# Nach Python-Aenderungen
+docker compose restart homeassistant
+
+# Syntaxpruefung
+python -m compileall custom_components/smart_homeassistant
+
+# Protokolle
+docker compose logs -f homeassistant
+\end{lstlisting}
+
+\section{Regeln für Änderungen}
+
+\begin{itemize}
+  \item Sicherheitsentscheidungen müssen deterministisch bleiben.
+  \item Neue Aktionen benötigen eine explizite Policy-Begrenzung.
+  \item Modellausgaben dürfen nicht ungeprüft an Home Assistant oder das Dateisystem
+        weitergereicht werden.
+  \item Sichtbare Texte müssen bei Bedarf in beiden Übersetzungsdateien ergänzt werden.
+  \item Änderungen an Konfiguration oder Verhalten müssen in README und Dokumentation
+        nachvollzogen werden.
+  \item Beispiele dürfen keine echten Secrets oder privaten Installationsdaten enthalten.
+\end{itemize}
+
+\chapter{Datenschutz und Betriebsdaten}
+
+\section{Lokal gespeicherte Daten}
+
+\begin{table}[htbp]
+  \centering
+  \begin{tabularx}{\textwidth}{@{}L{49mm}Y@{}}
+    \toprule
+    \textbf{Daten} & \textbf{Speicherort} \\
+    \midrule
+    Providerkonfiguration und API-Keys & Home Assistant \code{.storage/} \\
+    Sicherheits-Policy & \code{smart\_homeassistant\_policy.yaml} \\
+    Automationen & Home-Assistant-Automationskonfiguration \\
+    generierte Dashboards & \code{smart\_homeassistant\_dashboards/} und
+    \code{configuration.yaml} \\
+    Offline-Dokumentation &
+    \code{custom\_components/smart\_homeassistant/homeassistant\_docs\_offline.md} \\
+    Ollama-Modelle & benanntes Docker-Volume \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Persistente Daten}
+\end{table}
+
+\section{Externe Übertragung}
+
+Bei Nutzung eines Cloud-Providers werden Modellkontext und Nutzereingabe an den
+konfigurierten Endpunkt übertragen. Dazu können je nach Anfrage Entity-Namen,
+Entity-Zustände, Automationsnamen, Bereiche und Gesprächsverlauf gehören.
+
+Betreiber müssen selbst bewerten, welche Daten an den gewählten Provider übertragen
+werden dürfen. Für maximale lokale Verarbeitung kann Ollama verwendet werden.
+
+\chapter{Zusammenfassung}
+
+Smart Homeassistant verbindet natürliche Sprache mit einer lokal kontrollierten
+Home-Assistant-Ausführung. Die zentrale Eigenschaft ist nicht die Modellanbindung,
+sondern die Trennung zwischen unverbindlichem Modellvorschlag und deterministischer
+Freigabe.
+
+Für einen sicheren Betrieb sind insbesondere wichtig:
+
+\begin{enumerate}
+  \item die Policy eng und installationsspezifisch pflegen,
+  \item dauerhafte Änderungen vor der Bestätigung prüfen,
+  \item das Home-Assistant-Konfigurationsverzeichnis schützen,
+  \item externe Provider und die übertragenen Kontextdaten bewusst auswählen,
+  \item Sicherungen und Protokollkontrolle in den regulären Betrieb aufnehmen.
+\end{enumerate}
+
+\appendix
+
+\chapter{Kurzreferenz}
+
+\section{Wichtige URLs und Pfade}
+
+\begin{tabularx}{\textwidth}{@{}L{58mm}Y@{}}
+  \toprule
+  \textbf{Eintrag} & \textbf{Wert} \\
+  \midrule
+  Repository & \href{\projecturl}{github.com/Laneaster-ww/Homeassistant\_Assist} \\
+  Home Assistant im Docker-Standardbetrieb & \url{http://localhost:8123} \\
+  Ollama im Docker-Standardbetrieb & \url{http://localhost:11434} \\
+  Integrationsdomain & \code{smart\_homeassistant} \\
+  Policy-Datei & \code{smart\_homeassistant\_policy.yaml} \\
+  Integrationsverzeichnis & \code{custom\_components/smart\_homeassistant/} \\
+  Dashboard-Verzeichnis & \code{smart\_homeassistant\_dashboards/} \\
+  \bottomrule
+\end{tabularx}
+
+\section{Provider-Typen}
+
+\begin{center}
+  \code{ollama}
+  \quad
+  \code{openai}
+  \quad
+  \code{anthropic}
+  \quad
+  \code{gemini}
+\end{center}
+
+\section{Weiterführende Repository-Dokumente}
+
+\begin{itemize}
+  \item \code{README.md}
+  \item \code{docs/INSTALLATION.md}
+  \item \code{docs/ARCHITECTURE.md}
+  \item \code{docs/SECURITY\_MODEL.md}
+  \item \code{CONTRIBUTING.md}
+  \item \code{SECURITY.md}
+  \item \code{CHANGELOG.md}
+\end{itemize}
+
+\end{document}
